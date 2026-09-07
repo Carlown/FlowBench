@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.2.2] - 2026-09-07
+
+### Added
+
+- Added a cross-platform headless server-agent mode with an authenticated control Hub, outbound-only polling, heartbeat reporting, and persistent command cursors.
+- Added a “Server Agents” page to the desktop GUI for refreshing agents, starting and stopping authorized jobs, and viewing live node status and operation logs.
+- Added one-click server-node bundle generation for Windows and Linux, including Hub and Agent credentials, generated HTTPS certificates, startup scripts, and bounded configuration.
+- Added server-node status tiles for total requests, successes, live QPS, and total traffic, with per-node state and traffic details.
+- Added agent job progress reporting and completion summaries, including total packets, successes, failures, latency, and sent bytes.
+- Added Docker deployment files and Railway guidance for Hub/Agent bundles.
+- Added English release notes and updated bilingual documentation in `SERVER_AGENT.md`.
+
+### Changed
+
+- Kept the Stress Test page focused on local jobs; server jobs now display their live status on the Server Agents page.
+- Preserved the Collaborative Testing node-status card and added total sent traffic.
+- Improved dark-mode consistency for dialogs, status editors, theme-color swatches, and hover backgrounds.
+- Unified application, installer, updater, and release metadata to version 1.2.2.
+
+### Fixed
+
+- Fixed server-node completion logs repeating after polling resumed; completion entries are now deduplicated per node and job.
+- Fixed startup races in all-in-one Linux bundles by waiting for the Hub `/health` endpoint before starting the Agent.
+- Fixed self-signed control-plane TLS handling with a GUI compatibility retry when the generated CA file is unavailable; controller tokens are still required.
+- Fixed Hub handling of aborted TLS handshakes and HTTP clients pointing at HTTPS ports, preventing noisy disconnect errors.
+- Fixed Hub and Agent binding/URL mismatch in generated bundles when a non-default public port was specified.
+- Fixed dark-mode dialog fallback and a potential settings-card color import issue.
+- Prevented page controls from remaining transparent after rapid page switches or missed animation callbacks.
+
+### Verified
+
+- Agent/Hub unit tests passed: 6/6.
+- Python compilation and AST checks passed.
+- Light/dark UI smoke tests passed across all primary pages and dialogs.
+- Windows Agent, Hub, CLI, desktop GUI, and Inno Setup installer builds completed.
+
 ## [1.2.0] - 2026-08-24
 
 ### Added

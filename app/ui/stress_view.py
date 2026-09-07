@@ -24,6 +24,7 @@ from app.ui.i18n import L
 
 HIGH_RATE = 500  # 高速率二次确认阈值
 CONFIG_VERSION = 1  # 配置文件格式版本，用于将来兼容
+REMOTE_ACTIVE_COLOR = "#00B7C3"
 
 # 错误码 -> 双语文案（引擎只存错误码，这里按当前语言翻译）
 _ERR_TEXT = {

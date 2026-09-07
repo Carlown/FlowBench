@@ -1,0 +1,4 @@
+{
+  "hub_url": "https://control.example.com",
+  "controller_token": "replace-with-a-random-controller-token-32-chars"
+}

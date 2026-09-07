@@ -19,7 +19,7 @@ from app.services.settings import settings
 from app.services.stress import engine
 from app.ui.disclaimer import AuthDialog
 from app.ui.i18n import L
-from app.ui.stress_view import MiniStat, HIGH_RATE
+from app.ui.stress_view import HIGH_RATE, MiniStat, fmt_bytes
 
 
 class CollabView(ScrollArea):
@@ -35,7 +35,10 @@ class CollabView(ScrollArea):
         self.enableTransparentBackground()
 
         # 节点本地统计快照（用于上报给主控）
-        self._local_stats = {"total": 0, "success": 0, "fail": 0, "qps": 0.0}
+        self._local_stats = {
+            "total": 0, "success": 0, "fail": 0,
+            "qps": 0.0, "tx": 0, "state": "idle",
+        }
         self._log_lines = []
 
         root = QVBoxLayout(self.view)
@@ -183,10 +186,12 @@ class CollabView(ScrollArea):
         self.mTotal = MiniStat("#0078D4", nodes_card)
         self.mSuccess = MiniStat("#107C10", nodes_card)
         self.mQps = MiniStat("#8764B8", nodes_card)
+        self.mTx = MiniStat("#00B7C3", nodes_card)
         grid = QGridLayout()
-        grid.addWidget(self._mini(L("累计请求", "Total Requests"), self.mTotal), 0, 0)
-        grid.addWidget(self._mini(L("累计成功", "Total Success"), self.mSuccess), 0, 1)
-        grid.addWidget(self._mini(L("实时 QPS", "Live QPS"), self.mQps), 0, 2)
+        grid.addWidget(self._mini(L("累计请求", "Total Requests"), self.mTotal, nodes_card), 0, 0)
+        grid.addWidget(self._mini(L("累计成功", "Total Success"), self.mSuccess, nodes_card), 0, 1)
+        grid.addWidget(self._mini(L("实时 QPS", "Live QPS"), self.mQps, nodes_card), 0, 2)
+        grid.addWidget(self._mini(L("总发送流量", "Total Sent Traffic"), self.mTx, nodes_card), 0, 3)
         ncl.addLayout(grid)
         self.nodeListLabel = CaptionLabel(L("（暂无节点连接）", "(no nodes connected)"), nodes_card)
         self.nodeListLabel.setWordWrap(True)
@@ -233,21 +238,22 @@ class CollabView(ScrollArea):
         self._stat_timer = QTimer(self)
         self._stat_timer.timeout.connect(self._tick_stats)
         self._stat_timer.start(1000)
+        self._node_states = {}
 
         self._switch_role(0)
         self._switch_conn_mode(0)
 
-    def _mini(self, title, value_label):
-        w = QWidget(self.view)
+    def _is_relay_mode(self):
+        return self.connCombo.currentIndex() == 0
+
+    def _mini(self, title, value_label, parent):
+        w = QWidget(parent)
         v = QVBoxLayout(w)
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(2)
         v.addWidget(CaptionLabel(title, w))
         v.addWidget(value_label)
         return w
-
-    def _is_relay_mode(self):
-        return self.connCombo.currentIndex() == 0
 
     def _switch_role(self, idx):
         self.hostCard.setVisible(idx == 0)
@@ -542,6 +548,11 @@ class CollabView(ScrollArea):
         if config["protocol"] in ("HTTP", "HTTPS"):
             config["url"] = build_http_url(
                 target_raw, host, config["port"], config["protocol"])
+        self._local_stats = {
+            "state": "running", "total": 0, "success": 0, "fail": 0,
+            "qps": 0.0, "tx": 0,
+        }
+        self._node_states = {}
         collab_server.broadcast({"type": "start", "config": config})
         self._server_log(L(f"已广播开始: {config['protocol']}://{host}:{config['port']}",
                            f"Start broadcast: {config['protocol']}://{host}:{config['port']}"))
@@ -765,12 +776,30 @@ class CollabView(ScrollArea):
         engine.stop()
 
     def _on_remote_report(self, r):
-        """远程压测结束，隐藏等待遮罩。"""
+        """本地节点压测结束：上报最终结果并写入协同日志。"""
         self._waiting_remote = False
         self._startup_busy = False
         win = self.window()
         if hasattr(win, "hide_busy"):
             win.hide_busy()
+
+        final_stats = {
+            "state": "completed",
+            "total": r.get("total", 0),
+            "success": r.get("success", 0),
+            "fail": r.get("fail", 0),
+            "qps": 0.0,
+            "tx": r.get("tx", r.get("bytes_tx", 0)),
+        }
+        if collab_client.connected:
+            collab_client.send_stats(final_stats)
+
+        self._local_stats = dict(final_stats)
+        self._client_log(L(
+            f"压测完成：总请求 {final_stats['total']}  成功 {final_stats['success']}  "
+            f"失败 {final_stats['fail']}  发送 {fmt_bytes(final_stats['tx'])}",
+            f"Test completed: total {final_stats['total']}  success {final_stats['success']}  "
+            f"failed {final_stats['fail']}  sent {fmt_bytes(final_stats['tx'])}"))
 
     def _on_remote_engine_started(self):
         """远程启动的 worker 线程已创建完成。遮罩等真正跑起来再隐藏。"""
@@ -779,10 +808,12 @@ class CollabView(ScrollArea):
     def _on_local_snapshot(self, d):
         """本地压测快照：节点端保存用于周期上报。"""
         self._local_stats = {
+            "state": "running",
             "total": d.get("total", 0),
             "success": d.get("success", 0),
             "fail": d.get("fail", 0),
             "qps": d.get("qps", 0.0),
+            "tx": d.get("tx", 0),
         }
         # worker线程真正跑起来了（有活跃线程），隐藏启动遮罩
         if self._startup_busy and d.get("active", 0) > 0:
@@ -822,22 +853,38 @@ class CollabView(ScrollArea):
         total_req = 0
         total_ok = 0
         total_qps = 0.0
+        total_tx = 0
         parts = []
         for name, stats in nodes:
             if stats:
                 total_req += stats.get("total", 0)
                 total_ok += stats.get("success", 0)
                 total_qps += stats.get("qps", 0.0)
-                parts.append(f"{name}: ✓{stats.get('success',0)} ✗{stats.get('fail',0)} ({stats.get('qps',0):.0f} QPS)")
+                tx = stats.get("tx", stats.get("bytes_tx", 0))
+                total_tx += tx
+                parts.append(
+                    f"{name}: ✓{stats.get('success',0)} ✗{stats.get('fail',0)} "
+                    f"({stats.get('qps',0):.0f} QPS) {fmt_bytes(tx)}")
+                state = str(stats.get("state", "running"))
+                if state == "completed" and self._node_states.get(name) != "completed":
+                    self._server_log(L(
+                        f"节点 {name} 压测完成：总请求 {stats.get('total',0)}  "
+                        f"成功 {stats.get('success',0)}  失败 {stats.get('fail',0)}  "
+                        f"发送 {fmt_bytes(tx)}",
+                        f"Node {name} finished: total {stats.get('total',0)}  "
+                        f"success {stats.get('success',0)}  failed {stats.get('fail',0)}  "
+                        f"sent {fmt_bytes(tx)}"))
+                self._node_states[name] = state
             else:
                 parts.append(f"{name}: " + L("等待中...", "waiting..."))
-        self.mTotal.setText(str(total_req))
-        self.mSuccess.setText(str(total_ok))
-        self.mQps.setText(f"{total_qps:.1f}")
         if parts:
             self.nodeListLabel.setText("  |  ".join(parts))
         else:
             self.nodeListLabel.setText(L("（暂无节点连接）", "(no nodes connected)"))
+        self.mTotal.setText(str(total_req))
+        self.mSuccess.setText(str(total_ok))
+        self.mQps.setText(f"{total_qps:.1f}")
+        self.mTx.setText(fmt_bytes(total_tx))
 
     def _server_log(self, msg):
         self._append_log(msg)

@@ -16,6 +16,7 @@ from qfluentwidgets import (Action, FluentWindow, NavigationItemPosition,
                             RoundMenu, SwitchButton)
 
 from app.services.settings import settings
+from app.ui.agent_view import AgentView
 from app.ui.busy_overlay import BusyOverlay
 from app.ui.collab_view import CollabView
 from app.ui.dashboard import DashboardView
@@ -30,7 +31,8 @@ PLUGIN_ICON = getattr(FIF, "APPLICATION", FIF.DEVELOPER_TOOLS)
 PAGE_EXIT_MS = 150
 PAGE_TRANSITION_MS = 520
 CONTROL_REVEAL_MS = 560
-MAX_STAGGER_SPAN_MS = 1500
+MAX_STAGGER_SPAN_MS = 700
+REVEAL_WATCHDOG_MS = 1200
 
 
 def _get_icon_path():
@@ -58,6 +60,7 @@ class MainWindow(FluentWindow):
         self.dashboard = DashboardView(self)
         self.stress = StressView(self)
         self.collab = CollabView(self)
+        self.agentView = AgentView(self)
         self.monitor = MonitorView(self)
         self.market = MarketView(self)
         self.settingsView = SettingsView(self)
@@ -80,6 +83,7 @@ class MainWindow(FluentWindow):
         self.addSubInterface(self.dashboard, FIF.HOME, L("主页", "Home"))
         self.addSubInterface(self.stress, FIF.SPEED_HIGH, L("压力测试", "Stress Test"))
         self.addSubInterface(self.collab, FIF.CONNECT, L("协同测试", "Collaborative"))
+        self.addSubInterface(self.agentView, getattr(FIF, "SERVER", FIF.DEVELOPER_TOOLS), L("服务器节点", "Server Agents"))
         self.addSubInterface(self.monitor, MON_ICON, L("监控面板", "Monitor"))
         self.addSubInterface(self.market, PLUGIN_ICON, L("插件", "Plugins"))
         self.addSubInterface(self.settingsView, FIF.SETTING, L("设置", "Settings"),
@@ -445,6 +449,7 @@ class MainWindow(FluentWindow):
         states = [state for state in states if state in self._control_reveals]
         stagger = max(28, min(
             85, MAX_STAGGER_SPAN_MS // max(1, len(states) - 1)))
+        max_delay = (len(states) - 1) * stagger
         for index, state in enumerate(states):
             try:
                 state[0].move(state[3].startValue())
@@ -454,6 +459,19 @@ class MainWindow(FluentWindow):
             QTimer.singleShot(
                 index * stagger,
                 lambda state=state: self._start_control_reveal(state))
+
+        # Animation callbacks can be lost when a Qt object is recreated during
+        # theme changes or rapid page switches. Always install a watchdog so
+        # every control is restored even if a finished() signal is missed.
+        QTimer.singleShot(
+            max(REVEAL_WATCHDOG_MS, max_delay + CONTROL_REVEAL_MS),
+            lambda: self._finish_control_reveals(reveal_serial))
+
+    def _finish_control_reveals(self, reveal_serial: int):
+        states = [state for state in self._control_reveals
+                  if state[5] == reveal_serial]
+        for state in states:
+            self._finish_control_reveal(state)
 
     def _collect_reveal_targets(self, interface):
         """Collect user-visible controls without descending into internals."""

@@ -1,0 +1,11 @@
+{
+  "target": "your-authorized-test-host.example",
+  "protocol": "HTTPS",
+  "url": "https://your-authorized-test-host.example/health",
+  "port": 443,
+  "rate": 20,
+  "duration": 30,
+  "threads": 4,
+  "packet_size": 1024,
+  "timeout": 5000
+}

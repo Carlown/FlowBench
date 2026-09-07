@@ -59,6 +59,9 @@ class AppSettings:
         "plugin_market_search_history": [],  # 插件市场搜索历史（最近优先）
         "plugin_market_favorites": [],       # 插件市场本地收藏 ID
         "github_token": "",           # GitHub Personal Access Token（一键发布插件用）
+        "agent_hub_url": "",          # 服务器节点控制 Hub 地址
+        "agent_hub_token": "",        # 服务器节点控制令牌
+        "agent_hub_ca": "",           # 一体化包生成的自签名 CA 文件
         "github_login": "",           # 最近一次成功授权的 GitHub 登录名（离线识别作者）
     }
 

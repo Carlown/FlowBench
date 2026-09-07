@@ -1,0 +1,10 @@
+{
+  "controller_token": "replace-with-a-random-controller-token-32-chars",
+  "agents": [
+    {
+      "agent_id": "server-01",
+      "name": "My Windows Server",
+      "token": "replace-with-a-random-agent-token-32-chars"
+    }
+  ]
+}

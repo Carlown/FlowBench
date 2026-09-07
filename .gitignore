@@ -23,3 +23,8 @@ logs/
 *.tmp
 *.bak
 *.old
+# NetPulse Server Agent local secrets/configuration
+agent.json
+hub.json
+controller.json
+*.state.json

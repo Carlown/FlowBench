@@ -77,7 +77,7 @@ pyinstaller --name NetPulse --icon app.ico --windowed --onefile --add-data "app.
 
 # 2. Create the installer (requires Inno Setup 7)
 ISCC.exe installer.iss
-# Output: installer/NetPulse-Setup-1.2.0.exe
+# Output: installer/NetPulse-Setup-1.2.2.exe
 ```
 
 ### Tech Stack
@@ -157,7 +157,7 @@ pyinstaller --name NetPulse --icon app.ico --windowed --onefile --add-data "app.
 
 # 2. 制作安装程序（需安装 Inno Setup 7）
 ISCC.exe installer.iss
-# 产物位于 installer/NetPulse-Setup-1.2.0.exe
+# 产物位于 installer/NetPulse-Setup-1.2.2.exe
 ```
 
 ### 技术栈
@@ -175,3 +175,6 @@ ISCC.exe installer.iss
 ## License / 许可证
 
 MIT License
+## Server Agent (additive)
+
+如果需要让服务器作为独立节点上线，而不是把桌面 GUI 搬到服务器，请看 [`SERVER_AGENT.md`](SERVER_AGENT.md)。它新增了跨平台 headless Agent、Hub、控制 CLI 和打包脚本；现有 GUI 与原功能保持不变。

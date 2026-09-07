@@ -1,6 +1,6 @@
 """设置页：主题/语言/默认参数/日志管理/检查更新/作者。"""
 from PySide6.QtCore import Qt, QUrl, Signal, QTimer
-from PySide6.QtGui import QDesktopServices, QCursor, QFont
+from PySide6.QtGui import QColor, QDesktopServices, QCursor, QFont
 from PySide6.QtWidgets import (QApplication, QFileDialog, QHBoxLayout,
                                QVBoxLayout, QWidget, QPushButton)
 from qfluentwidgets import (BodyLabel, CaptionLabel, ColorDialog, ComboBox, InfoBar,
@@ -67,9 +67,6 @@ class ClickableCard(SimpleCardWidget):
             return QColor(255, 255, 255) if not self._hover else QColor(245, 245, 250)
 
 
-from PySide6.QtGui import QColor
-
-
 class ThemeColorPicker(QWidget):
     """主题颜色选择器：预设色块 + 自定义颜色对话框。选择即生效并持久化到 settings。"""
 
@@ -108,6 +105,8 @@ class ThemeColorPicker(QWidget):
         """刷新色块选中态：当前色加高亮描边。"""
         cur = str(settings.theme_color).upper()
         border_hi = "#FFFFFF" if isDarkTheme() else "#1A1A1A"
+        idle_border = "#555555" if isDarkTheme() else "rgba(128,128,128,0.45)"
+        idle_hover = "#757575" if isDarkTheme() else "rgba(128,128,128,0.85)"
         for btn in self._swatches:
             c = btn.property("swatch_color")
             if c.upper() == cur:
@@ -117,8 +116,8 @@ class ThemeColorPicker(QWidget):
             else:
                 btn.setStyleSheet(
                     f"QPushButton {{ background-color: {c}; border-radius: 11px;"
-                    f" border: 1px solid rgba(128,128,128,0.45); }}"
-                    f"QPushButton:hover {{ border: 2px solid rgba(128,128,128,0.85); }}")
+                    f" border: 1px solid {idle_border}; }}"
+                    f"QPushButton:hover {{ border: 2px solid {idle_hover}; }}")
 
     def _pick_custom(self):
         old = QColor(str(settings.theme_color))

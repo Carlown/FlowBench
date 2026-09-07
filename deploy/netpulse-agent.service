@@ -1,0 +1,21 @@
+[Unit]
+Description=NetPulse Server Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=netpulse
+Group=netpulse
+WorkingDirectory=/opt/netpulse-agent
+ExecStart=/opt/netpulse-agent/venv/bin/python /opt/netpulse-agent/server_agent.py --config /etc/netpulse/agent.json
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/netpulse-agent
+
+[Install]
+WantedBy=multi-user.target

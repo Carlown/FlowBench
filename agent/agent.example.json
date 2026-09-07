@@ -1,0 +1,20 @@
+{
+  "hub_url": "https://control.example.com",
+  "agent_id": "server-01",
+  "token": "replace-with-a-random-agent-token-32-chars",
+  "allowed_targets": [
+    "your-authorized-test-host.example"
+  ],
+  "allowed_protocols": [
+    "HTTP",
+    "HTTPS",
+    "TCP"
+  ],
+  "max_rate": 100,
+  "max_duration": 300,
+  "max_threads": 32,
+  "max_packet_size": 65536,
+  "poll_interval": 2,
+  "heartbeat_interval": 10,
+  "job_heartbeat_interval": 2
+}
