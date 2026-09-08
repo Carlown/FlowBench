@@ -1,109 +1,109 @@
 # NetPulse Server Agent
 
-这是一个**新增的服务器节点部署方式**，不改动现有桌面 GUI。服务器运行 `server_agent.py`（或打包后的 `NetPulse-Agent.exe`），通过出站 HTTPS 轮询连接 Hub；本地操作员使用 `agentctl.py` 向指定节点发送开始/停止命令。
+This is a **new server node deployment method** that does not modify the existing desktop GUI. The server runs `server_agent.py` (or the packaged `NetPulse-Agent.exe`), which connects to the Hub via outbound HTTPS polling; local operators use `agentctl.py` to send start/stop commands to a specified node.
 
 ```text
-本地操作员 / 控制台
-        │ HTTPS（控制命令、状态）
+Local Operator / Console
+        │ HTTPS (control commands, status)
         ▼
-NetPulse Hub（你自己部署）
+NetPulse Hub (self-hosted)
         ▲
-        │ 出站 HTTPS（服务器无需开放入站端口）
+        │ Outbound HTTPS (server does not need inbound ports open)
         │
-NetPulse-Agent.exe（你的服务器） ───► 已授权测试目标
+NetPulse-Agent.exe (your server) ───► Authorized test targets
 ```
 
-## 为什么这样做
+## Why this approach
 
-- 现有 `NetPulse.exe`、GUI、压测页和协同页完全保留。
-- Agent 是独立进程，复制到服务器即可运行，不需要把桌面 GUI 搬到服务器。
-- 服务器主动向 Hub 建立连接，不要求给服务器开放管理端口。
-- Agent 的目标白名单、协议、速率、时长、线程数和包大小都在服务器本地配置中设上限。
-- 一个 Agent 一次只接受一个任务；默认只开放 HTTP / HTTPS / TCP 远程任务。
+- The existing `NetPulse.exe`, GUI, stress-test page, and collaboration page remain fully intact.
+- The Agent is an independent process; copy it to the server and run it, no need to move the desktop GUI to the server.
+- The server actively establishes a connection to the Hub, no need to open management ports on the server.
+- The Agent's target whitelist, protocols, rate, duration, thread count, and packet size are all capped by local configuration on the server.
+- One Agent accepts only one task at a time; by default only HTTP / HTTPS / TCP remote tasks are enabled.
 
-> 仅用于你拥有或取得书面授权的测试目标。Hub/Agent 不提供任意公网目标的开放转发能力。
+> Only for use against test targets that you own or have written authorization for. The Hub/Agent does not provide open forwarding capabilities to arbitrary public targets.
 
-## 一体化生成（开源用户默认方式）
+## One‑click generation (default for open‑source users)
 
-如果还没有部署 Hub，直接把“Hub 地址”和“控制令牌”留空，点击“生成服务器节点”：
+If you have not yet deployed a Hub, leave the "Hub address" and "control token" fields blank, then click "Generate Server Node":
 
-1. 输入节点名称。
-2. 输入这台服务器的公网 IP 或域名。
-3. 保存 ZIP。
+1. Enter a node name.
+2. Enter the public IP or domain name of this server.
+3. Save the ZIP.
 
-GUI 会自动生成：
+The GUI will automatically generate:
 
 - `NetPulse-Hub`
 - `NetPulse-Agent`
-- 随机控制令牌
-- 随机节点令牌
-- 随机自签名 HTTPS 证书
-- Windows 一键启动脚本
-- Linux 一键启动脚本
-- 已配置好的 `hub.json` 和 `agent.json`
+- A random control token
+- A random node token
+- A random self‑signed HTTPS certificate
+- Windows one‑click startup script
+- Linux one‑click startup script
+- Pre‑configured `hub.json` and `agent.json`
 
-Windows 服务器解压后进入 `windows`，以管理员运行 `start-all.cmd` 并放行 TCP `8787`。Linux 服务器解压后进入 `linux`，运行 `./start-all.sh` 并放行 TCP `8787`。启动后回 GUI 点击“刷新节点”。
+After extracting on a Windows server, go to the `windows` folder, run `start-all.cmd` as Administrator, and allow TCP `8787`. On a Linux server, extract, go to the `linux` folder, run `./start-all.sh`, and allow TCP `8787`. After startup, return to the GUI and click "Refresh Nodes".
 
-生成 ZIP 时旁边还会生成 `NetPulse-节点名.ca.pem`。这个文件是 GUI 信任一体化 Hub 证书用的，不要删除或改名。
+When generating the ZIP, a file `NetPulse-<node name>.ca.pem` is also created next to it. This file is used by the GUI to trust the one‑click Hub certificate; do not delete or rename it.
 
-## 0. 使用 GUI 生成节点包（推荐）
+## 0. Generate the node package using the GUI (recommended)
 
-前提：先部署并启动 `NetPulse-Hub`，本地 GUI 能访问它的 HTTPS 地址。
+Prerequisite: first deploy and start `NetPulse-Hub`, and the local GUI must be able to access its HTTPS address.
 
-1. 在本地 NetPulse 的“服务器节点”页填写 Hub 地址和控制令牌。
-2. 点击“生成服务器节点”。
-3. 输入节点名称并保存 ZIP。
-4. 把 ZIP 复制到服务器并解压：
-   - Windows Server：进入 `windows`，双击 `start-agent.cmd`。
-   - Linux：进入 `linux`，先安装 `requests`，再执行 `./start-agent.sh`。
-5. 回到本地 GUI 点击“刷新节点”，看到该节点在线即可。
+1. In the local NetPulse "Server Nodes" page, fill in the Hub address and control token.
+2. Click "Generate Server Node".
+3. Enter a node name and save the ZIP.
+4. Copy the ZIP to the server and extract:
+   - Windows Server: go to `windows` and double‑click `start-agent.cmd`.
+   - Linux: go to `linux`, install `requests` first, then run `./start-agent.sh`.
+5. Return to the local GUI, click "Refresh Nodes", and the node will appear online.
 
-生成的 ZIP 已经包含该节点专属 token、Hub 地址、Windows 可执行文件和 Linux 源码，不需要再手工编辑 `agent.json`。节点初次生成时目标白名单可以为空；每次从 GUI 启动任务前，控制端会同步当前已在本地授权的目标。
+The generated ZIP already includes the node‑specific token, Hub address, Windows executable, and Linux source code; no need to manually edit `agent.json`. The target whitelist can be empty at initial generation; before each task is started from the GUI, the control side will synchronise the targets already authorised locally.
 
-## 1. 生成随机令牌
+## 1. Generate random tokens
 
-在 PowerShell 中生成令牌：
+Generate tokens in PowerShell:
 
 ```powershell
 python -c "import secrets; print(secrets.token_urlsafe(32)); print(secrets.token_urlsafe(32))"
 ```
 
-第一行用于 Hub 的 `controller_token`，第二行用于 Agent 的 `token`。不要把令牌提交到 Git 或发到聊天群。
+The first line is for the Hub's `controller_token`, the second for the Agent's `token`. Do not commit tokens to Git or post them in chat groups.
 
-## 2. 配置 Hub
+## 2. Configure the Hub
 
-复制 `agent/hub.example.json` 为 `hub.json`，填入同一组 Agent ID/令牌和控制端令牌：
+Copy `agent/hub.example.json` to `hub.json`, and fill in the same Agent ID/token pair and the controller token:
 
 ```json
 {
-  "controller_token": "至少 16 个字符的随机值",
+  "controller_token": "random value at least 16 characters",
   "agents": [
     {
       "agent_id": "server-01",
       "name": "My Server",
-      "token": "至少 16 个字符的随机值"
+      "token": "random value at least 16 characters"
     }
   ]
 }
 ```
 
-开发环境启动：
+Start in development:
 
 ```powershell
 python agent/hub.py --config hub.json --host 127.0.0.1 --port 8787
 ```
 
-生产环境请把 Hub 放在你自己的 HTTPS 反向代理后面（例如 Nginx/Caddy），然后让 Agent 使用 `https://...` 地址。不要把内置 HTTP 监听器直接暴露到公网。
+For production, put the Hub behind your own HTTPS reverse proxy (e.g. Nginx/Caddy) and let the Agent use the `https://...` address. Do not expose the built‑in HTTP listener directly to the public internet.
 
-## 3. 配置服务器 Agent
+## 3. Configure the server Agent
 
-复制 `agent/agent.example.json` 为服务器上的 `agent.json`：
+Copy `agent/agent.example.json` to `agent.json` on the server:
 
 ```json
 {
   "hub_url": "https://control.example.com",
   "agent_id": "server-01",
-  "token": "与 hub.json 中 server-01 相同",
+  "token": "same as in hub.json for server-01",
   "allowed_targets": ["your-authorized-test-host.example"],
   "allowed_protocols": ["HTTP", "HTTPS", "TCP"],
   "max_rate": 100,
@@ -115,59 +115,60 @@ python agent/hub.py --config hub.json --host 127.0.0.1 --port 8787
 }
 ```
 
-`allowed_targets` 必须填写精确主机名/IP。任务中的目标不在这个列表里会被 Agent 拒绝。远程任务还会受到 Agent 配置的所有上限约束。
+`allowed_targets` must be exact hostnames/IPs. Tasks with targets not in this list will be rejected by the Agent. Remote tasks are also subject to all caps set in the Agent configuration.
 
-在服务器测试运行：
+Test‑run on the server:
 
 ```powershell
 python server_agent.py --config agent.json
 ```
 
-看到 `online as server-01` 即说明 Agent 已上线。服务器只需要能够访问 Hub 的出站 HTTPS，不需要为 Agent 开放入站端口。
+Seeing `online as server-01` means the Agent is online. The server only needs outbound HTTPS access to the Hub; no inbound ports need to be opened for the Agent.
 
-## 4. 从控制端查看和发送任务
+## 4. View and send tasks from the control side
 
-复制 `agent/controller.example.json` 为 `controller.json`，填入 Hub 地址和 `controller_token`。
+Copy `agent/controller.example.json` to `controller.json`, filling in the Hub address and `controller_token`.
 
-查看节点：
+List nodes:
 
 ```powershell
 python agentctl.py --config controller.json list
 ```
 
-复制 `agent/job.example.json` 为 `job.json`，填入已经授权的测试主机，然后发送任务：
+Copy `agent/job.example.json` to `job.json`, fill in an authorised test host, then send a task:
 
 ```powershell
 python agentctl.py --config controller.json run server-01 job.json
 ```
 
-停止任务：
+Stop a task:
 
 ```powershell
 python agentctl.py --config controller.json stop server-01
 ```
 
-## 5. 打包客户端
+## 5. Package the client
 
-在开发电脑上执行：
+On the development machine, run:
 
 ```powershell
 .\build_agent.ps1
 ```
 
-产物位于 `dist\NetPulse-Agent.exe`。Agent 是跨平台纯 Python 网络进程，不依赖 Qt 或桌面环境；Windows 直接复制 exe，Linux 使用同一份 `server_agent.py`（或在 Linux 上用 PyInstaller 重新打包）和 `agent.json`。`hub.py` 和 `agentctl.py` 会生成独立 exe，详见 `Agent.spec` / `Hub.spec` / `AgentCtl.spec`。
+The output is `dist\NetPulse-Agent.exe`. The Agent is a cross‑platform pure‑Python network process that does not depend on Qt or a desktop environment; for Windows, copy the exe directly; for Linux, use the same `server_agent.py` (or repackage with PyInstaller on Linux) and `agent.json`. `hub.py` and `agentctl.py` are also built as standalone exes; see `Agent.spec`, `Hub.spec`, and `AgentCtl.spec`.
 
-## 6. 服务器开机启动
+## 6. Autostart on server boot
 
-Windows 服务器可以用“任务计划程序”创建任务：
+On Windows Server, use Task Scheduler:
 
-- 触发器：系统启动时
-- 操作：`NetPulse-Agent.exe --config C:\NetPulse\agent.json`
-- 勾选“无论用户是否登录都运行”
-- 失败后按 1 分钟间隔重试
-- 运行账户使用专用低权限账户
+- Trigger: At system startup
+- Action: `NetPulse-Agent.exe --config C:\NetPulse\agent.json`
+- Check "Run whether user is logged on or not"
+- Restart on failure every 1 minute
+- Run under a dedicated low‑privilege account
 
-Linux 服务器不能运行 Windows exe，但可以直接运行 `server_agent.py`：安装 Python 3.10+ 与 `requests`（`pip install requests`），然后执行 `python3 server_agent.py --config agent.json`。也可以在 Linux 上执行 `pyinstaller Agent.spec` 生成 Linux 版二进制。
+Linux servers cannot run the Windows exe, but can run `server_agent.py` directly: install Python 3.10+ and `requests` (`pip install requests`), then execute `python3 server_agent.py --config agent.json`. Alternatively, on Linux you can run `pyinstaller Agent.spec` to produce a Linux binary.
+
 ## Docker / Railway notes
 
 The generated Linux bundle is now safe for container startup. It starts Hub first, polls `https://127.0.0.1:8787/health`, and only starts Agent after the health check succeeds.
@@ -179,8 +180,7 @@ Public Hub URL for GUI / remote agents: https://proxy.example.com:23915
 Internal Hub bind port on the server/container: 8787
 ```
 
-The GUI should use the public URL. A co-located Agent should use `https://127.0.0.1:8787`; only a remote Agent should use the public proxy URL. The current one-click bundle generates the internal bind port from the address you enter, so enter the public proxy address only if the Agent will connect through the proxy. For a co-located Agent with a proxy, edit `agent/agent.json` after generation.
-
+The GUI should use the public URL. A co‑located Agent should use `https://127.0.0.1:8787`; only a remote Agent should use the public proxy URL. The current one‑click bundle generates the internal bind port from the address you enter, so enter the public proxy address only if the Agent will connect through the proxy. For a co‑located Agent with a proxy, edit `agent/agent.json` after generation.
 
 Build an extracted bundle:
 
@@ -198,4 +198,5 @@ For Railway, prefer the official HTTPS proxy and run Hub in plain HTTP mode:
 python3 hub/hub.py --config hub/hub.json --host 0.0.0.0 --port 8787
 ```
 
-In that mode the local Agent can use `http://127.0.0.1:8787`, while the local GUI should use the public `https://...` URL provided by Railway. Do not put a self-signed HTTPS backend behind Railway's ordinary HTTP reverse proxy.
+In that mode the local Agent can use `http://127.0.0.1:8787`, while the local GUI should use the public `https://...` URL provided by Railway. Do not put a self‑signed HTTPS backend behind Railway's ordinary HTTP reverse proxy.
+```
