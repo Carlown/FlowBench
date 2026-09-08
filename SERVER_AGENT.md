@@ -199,4 +199,3 @@ python3 hub/hub.py --config hub/hub.json --host 0.0.0.0 --port 8787
 ```
 
 In that mode the local Agent can use `http://127.0.0.1:8787`, while the local GUI should use the public `https://...` URL provided by Railway. Do not put a self‑signed HTTPS backend behind Railway's ordinary HTTP reverse proxy.
-```
