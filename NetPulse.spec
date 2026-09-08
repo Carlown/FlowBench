@@ -19,7 +19,7 @@ a = Analysis(
         ('agent/transport.py', 'agent_template/linux/agent'),
         ('agent/__init__.py', 'agent_template/linux/agent'),
     ],
-    hiddenimports=[],
+    hiddenimports=['shiboken6.Shiboken'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

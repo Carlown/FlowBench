@@ -9,6 +9,23 @@ os.makedirs(_crash_log_dir, exist_ok=True)
 _crash_log_file = open(os.path.join(_crash_log_dir, "crash.log"), "a", encoding="utf-8")
 faulthandler.enable(_crash_log_file)
 
+# Frozen PySide6 packages expose the PYZ namespace module before Qt binaries.
+# Register the bundled DLL directories and preload Shiboken so QtCore.pyd can
+# resolve pyside6.abi3.dll and libshiboken during the very first Qt import.
+if getattr(sys, "frozen", False):
+    _pyside_dir = os.path.join(sys._MEIPASS, "PySide6")
+    _shiboken_dir = os.path.join(sys._MEIPASS, "shiboken6")
+    for _dll_dir in (_pyside_dir, _shiboken_dir, sys._MEIPASS):
+        os.add_dll_directory(_dll_dir)
+    os.environ["PATH"] = _pyside_dir + os.pathsep + _shiboken_dir + os.pathsep + os.environ.get("PATH", "")
+    import ctypes
+    import shiboken6.Shiboken  # noqa: F401
+    # Python's frozen importer can still miss the PySide6 extension-specific
+    # loader context. Preload QtCore.pyd itself so every dependent DLL is in
+    # the process before importlib touches it.
+    ctypes.windll.kernel32.LoadLibraryExW(
+        os.path.join(_pyside_dir, "QtCore.pyd"), 0, 8)
+
 # 仅导入最核心、最轻量的模块，确保启动画面能第一时间显示
 from PySide6.QtCore import QLocale, QTimer, QSize
 from PySide6.QtWidgets import QApplication

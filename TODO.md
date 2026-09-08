@@ -63,6 +63,14 @@
 - [x] 验证 Hub 监听 `https://0.0.0.0:8787` 后，Agent 可使用 `https://127.0.0.1:8787` 成功上线。
 - [ ] Railway 若使用官方 HTTPS 反向代理，建议 Hub 以纯 HTTP 模式启动（不带 `--certfile/--keyfile`），由 Railway 终止 TLS。
 
+## 发布后排查
+- [x] 修复打包应用首导 `PySide6.QtCore` 失败：打包时只暴露 PYZ 命名空间模块，缺少 `PySide6.__init__` 的 DLL 目录注册。已在 `main.py` 冻结分支中注册 PySide6/shiboken6 DLL 目录，预加载 `shiboken6.Shiboken` 和 `QtCore.pyd`。
+- [x] 重新构建并通过本地运行验证（进程保持运行，不再出现 Unhandled exception）。
+- [x] 重新生成 `NetPulse-Setup-1.2.2.exe`。
+- [x] 本机直接运行 `dist/NetPulse/NetPulse.exe` 正常退出；当前构建的 Qt DLL 可在本机加载。
+- [x] Release 安装包 `NetPulse-Setup-1.2.2.exe` 已上传，SHA256: `6D1FE85F54CCA4BC8A4179EFC86B957AB00E26A713110C0CDCFEEC24682D6AF0`。
+- [ ] 如果用户安装后报 `QtCore DLL load failed`，先确认只保留一个 NetPulse 安装目录，并安装 Microsoft Visual C++ 2015-2022 x64 Redistributable。
+
 ## 后续建议
 - [ ] 发布 Release 时上传 `installer/NetPulse-Setup-1.2.2.exe`。
 - [ ] 如有签名证书，给 Windows 安装包和 Agent exe 做代码签名。
