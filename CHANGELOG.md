@@ -21,6 +21,10 @@
 
 ### Fixed
 
+- Fixed a packaged-application startup failure where the first PySide6.QtCore import could fail with a missing DLL entry point; bundled PySide6/shiboken6 DLL directories are now registered and Shiboken/QtCore are preloaded in frozen builds.
+- Excluded incompatible bundled ICU DLLs so Qt uses the Windows-provided ICU runtime instead of a conflicting ICU 78 runtime.
+- Removed automatic marketplace PR merging; external submissions now remain open for manual maintainer review.
+- Kept the legacy marketplace workflow filename as a no-op guard so older clients cannot re-enable automatic merging.
 - Fixed server-node completion logs repeating after polling resumed; completion entries are now deduplicated per node and job.
 - Fixed startup races in all-in-one Linux bundles by waiting for the Hub `/health` endpoint before starting the Agent.
 - Fixed self-signed control-plane TLS handling with a GUI compatibility retry when the generated CA file is unavailable; controller tokens are still required.

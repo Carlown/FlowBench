@@ -211,97 +211,12 @@ def gh_delete_file(repo_api, path, message, branch, headers, sha):
     return r.json()
 
 
-class NeedsReauth(Exception):
-    """token 缺少必要 scope，需要重新授权。"""
-
-
 def gh_check_scopes(token):
     """返回当前 token 的 scope 集合。"""
     r = requests.get(f"{_GH_API}/user", headers=gh_headers(token), timeout=15)
     r.raise_for_status()
     scopes = r.headers.get("X-OAuth-Scopes", "") or ""
     return {s.strip() for s in scopes.split(",") if s.strip()}
-
-
-# 内嵌的自动合并工作流，所有者发布时自动推送到仓库
-_AUTO_MERGE_WORKFLOW = r"""name: Auto-merge Marketplace PRs
-
-on:
-  pull_request_target:
-    paths:
-      - 'marketplace/**'
-    types: [opened, synchronize]
-
-permissions:
-  contents: write
-  pull-requests: write
-
-jobs:
-  auto-merge:
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.state == 'open' && !github.event.pull_request.draft
-    steps:
-      - name: Validate and auto-merge
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const pr = context.issue.number;
-            const { data: files } = await github.rest.pulls.listFiles({
-              owner, repo, pull_number: pr, per_page: 100,
-            });
-            const illegal = files.filter(f => !f.filename.startsWith('marketplace/'));
-            if (illegal.length > 0) {
-              await github.rest.issues.createComment({
-                owner, repo, issue_number: pr,
-                body: 'Auto-merge rejected: non-marketplace files changed.\n\n' +
-                      illegal.map(f => '- ' + f.filename).join('\n'),
-              });
-              await github.rest.pulls.update({ owner, repo, pull_number: pr, state: 'closed' });
-              core.setFailed('Non-marketplace files detected.');
-              return;
-            }
-            const idxFile = files.find(f => f.filename === 'marketplace/plugins-index.json');
-            if (idxFile) {
-              try {
-                const { data: content } = await github.rest.repos.getContent({
-                  owner, repo, path: 'marketplace/plugins-index.json',
-                  ref: context.payload.pull_request.head.sha,
-                });
-                const json = JSON.parse(Buffer.from(content.content, 'base64').toString('utf-8'));
-                if (!Array.isArray(json.plugins)) throw new Error('plugins is not an array');
-                const ids = new Set();
-                for (const p of json.plugins) {
-                  if (!p.id || !p.name || !p.version)
-                    throw new Error('plugin missing required fields');
-                  if (ids.has(p.id)) throw new Error('duplicate id: ' + p.id);
-                  ids.add(p.id);
-                }
-              } catch (e) {
-                await github.rest.issues.createComment({
-                  owner, repo, issue_number: pr,
-                  body: 'Index validation failed: ' + e.message,
-                });
-                core.setFailed('Validation failed: ' + e.message);
-                return;
-              }
-            }
-            try {
-              await github.rest.pulls.merge({
-                owner, repo, pull_number: pr, merge_method: 'squash',
-                commit_title: `[Auto-merge] ${context.payload.pull_request.title}`,
-              });
-            } catch (e) {
-              try {
-                await github.rest.pulls.enableAutoMerge({
-                  owner, repo, pull_number: pr, merge_method: 'squash',
-                });
-              } catch (e2) {
-                core.setFailed('Merge failed: ' + e.message);
-              }
-            }
-"""
 
 
 def gh_file_sha(repo_api, path, branch, headers):
@@ -312,29 +227,6 @@ def gh_file_sha(repo_api, path, branch, headers):
         return None
     r.raise_for_status()
     return r.json().get("sha")
-
-
-def gh_ensure_workflow(token):
-    """确保仓库里有自动合并工作流；缺少则推送。
-
-    如果 token 没有 workflow scope，抛 NeedsReauth。
-    """
-    headers = gh_headers(token)
-    upstream = f"{_GH_API}/repos/{_REPO_OWNER}/{_REPO_NAME}"
-    wf_path = ".github/workflows/auto-merge-marketplace.yml"
-    wf_b64 = base64.b64encode(_AUTO_MERGE_WORKFLOW.encode("utf-8")).decode()
-
-    sha = gh_file_sha(upstream, wf_path, _REPO_BRANCH, headers)
-    if sha:
-        return  # 已存在
-    try:
-        gh_put_file(upstream, wf_path, wf_b64,
-                    "Add auto-merge workflow for marketplace",
-                    _REPO_BRANCH, headers)
-    except requests.HTTPError as e:
-        if e.response is not None and e.response.status_code in (403, 404):
-            raise NeedsReauth("workflow scope required")
-        raise
 
 
 def decode_data_uri_icon(v: str):
@@ -2007,13 +1899,6 @@ class PluginMarketPage(QWidget):
 
         # ---------- 路径 A：直接提交到 master ----------
         if can_push:
-            try:
-                gh_ensure_workflow(token)
-            except NeedsReauth:
-                settings.set("github_token", "")
-                raise Exception(L(
-                    "授权已过期，请重新下架以完成授权。",
-                    "Authorization needs refresh. Please unpublish again to re-authorize."))
             _remove_from_index(upstream, _REPO_BRANCH)
             # 同时删除插件源码文件（如果存在）
             file_sha = gh_file_sha(upstream, plugin_path, _REPO_BRANCH, headers)
@@ -2673,16 +2558,6 @@ class PublishDialog(MessageBoxBase):
 
         # ---------- 路径 A：所有者/协作者，直接提交到 master ----------
         if can_push:
-            self.statusUpdate.emit(L("正在检查自动上架配置…",
-                                     "Checking auto-publish setup…"))
-            try:
-                gh_ensure_workflow(token)
-            except NeedsReauth:
-                settings.set("github_token", "")
-                raise Exception(L(
-                    "授权已过期，请重新发布以完成授权。",
-                    "Authorization needs refresh. Please publish again to re-authorize."))
-
             self.statusUpdate.emit(L("检测到仓库写权限，直接上架…",
                                      "Write access detected, publishing directly…"))
             plugin_b64 = base64.b64encode(plugin_bytes).decode()
@@ -2760,7 +2635,8 @@ class PublishDialog(MessageBoxBase):
         gh_put_file(fork_api, idx_path, new_b64,
                     f"Add plugin: {pid}", branch_name, headers, idx_sha)
 
-        self.statusUpdate.emit(L("正在提交，将自动上架…", "Submitting, will go live automatically…"))
+        self.statusUpdate.emit(L("正在提交，等待人工审核…",
+                                 "Submitting, awaiting manual review…"))
         pr_body = L(
             f"## 新插件提交\n\n"
             f"- **插件 ID**: {pid}\n"
@@ -2799,10 +2675,10 @@ class PublishDialog(MessageBoxBase):
                             parent=self.window(), duration=6000)
         else:
             self.statusLabel.setText(
-                L(f"✓ 已提交，正在自动上架：{url}", f"✓ Submitted, going live automatically: {url}"))
+                L(f"✓ 已提交，等待审核：{url}", f"✓ Submitted, awaiting review: {url}"))
             InfoBar.success(L("发布成功", "Published"),
-                            L("插件已提交，将在几秒内自动上架。",
-                              "Plugin submitted. It will go live automatically within seconds."),
+                            L("插件已提交，审核通过并合并 PR 后上架。",
+                              "Plugin submitted. It will go live after the PR is reviewed and merged."),
                             parent=self.window(), duration=6000)
         QDesktopServices.openUrl(QUrl(url))
 

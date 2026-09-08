@@ -45,7 +45,7 @@ NetPulse v1.1.0 ships with a full plugin platform — extend the app with your o
 
 - **Plugin Marketplace**: browse, search, install and update community plugins with one click (integrity-verified via SHA-256)
 - **Local Plugin Management**: enable / disable / reload / remove plugins instantly; metadata and icons stay visible when disabled
-- **One-click Publish**: publish your own plugins to the marketplace directly from the app via GitHub OAuth device flow — no manual token generation. Publishes go live automatically (auto-merge workflow, no manual review)
+- **One-click Publish**: publish your own plugins to the marketplace directly from the app via GitHub OAuth device flow — no manual token generation. External submissions create pull requests for manual maintainer review
 - **One-click Unpublish**: plugin authors can remove their own listings at any time
 - **Custom Icons**: plugin authors can upload a PNG/JPG icon (also supports built-in Fluent icons); auto-generated colored initial badge as fallback
 - **Rich Plugin API**: register custom protocols, exporters, target providers and metrics subscriptions; respond to test lifecycle events
@@ -125,7 +125,7 @@ NetPulse v1.1.0 内置完整插件平台，可以自由扩展功能：
 
 - **插件市场**：浏览、搜索、一键安装和更新社区插件（SHA-256 完整性校验）
 - **本地插件管理**：即时启用 / 禁用 / 重载 / 删除插件；禁用后图标和元数据保持显示
-- **一键发布**：通过 GitHub OAuth 设备授权，直接在软件内把你的插件发布到市场 —— 无需手动生成令牌，发布后自动上架（自动合并工作流，无需人工审核）
+- **一键发布**：通过 GitHub OAuth 设备授权，直接在软件内把你的插件发布到市场 —— 无需手动生成令牌；外部提交会创建 PR，由维护者人工审核
 - **一键下架**：插件作者可随时下架自己发布的插件
 - **自定义图标**：发布时可上传 PNG/JPG 图标（也支持内置 Fluent 图标）；未上传时自动生成彩色首字徽章
 - **丰富的插件 API**：注册自定义协议、导出器、目标源和指标订阅；响应测试生命周期事件

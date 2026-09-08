@@ -144,7 +144,7 @@ ctx.subscribe_metrics(on_metrics)
 
 1. Put your plugin in the local plugins folder and test it.
 2. Open **Plugin Marketplace → Publish**, pick your plugin, upload an icon (PNG/JPG, optional).
-3. Click publish — the app handles GitHub OAuth in the browser, no manual token. Listings go live automatically (auto-merge workflow, no manual review).
+3. Click publish — the app handles GitHub OAuth in the browser, no manual token. External submissions create a pull request and go live only after maintainer review and merge.
 4. Publish a new version by bumping `version` and publishing again — users see an "Update" button.
 
 ## Security Notes
@@ -301,7 +301,7 @@ ctx.subscribe_metrics(on_metrics)
 
 1. 把插件放进本地插件目录并测试。
 2. 打开 **插件市场 → 发布**，选择插件，上传图标（PNG/JPG，可选）。
-3. 点击发布 —— 软件自动走浏览器 GitHub OAuth，无需手动生成令牌。发布后自动上架（自动合并工作流，无需人工审核）。
+3. 点击发布 —— 软件自动走浏览器 GitHub OAuth，无需手动生成令牌。外部提交会创建 PR，只有维护者审核合并后才上架。
 4. 发新版本只需改 `version` 再发布一次 —— 用户会看到"更新"按钮。
 
 ## 安全须知

@@ -432,7 +432,7 @@ _add("Нажмите Authorize в открытом браузере. Если о
 _add("Публикация...", "发布中…", "Publishing…")
 _add("Загрузка файла плагина...", "正在上传插件文件…", "Uploading plugin file…")
 _add("Обновление индекса плагинов...", "正在更新插件索引…", "Updating plugin index…")
-_add("Отправка, публикация произойдет автоматически...", "正在提交，将自动上架…", "Submitting, will go live automatically…")
+_add("Отправка, ожидание ручной проверки...", "正在提交，等待人工审核…", "Submitting, awaiting manual review…")
 _add("Публикация не удалась", "发布失败", "Publish failed")
 _add("Включить", "启用", "Enable")
 _add("Включено", "已启用", "Enabled")
@@ -464,11 +464,10 @@ _add("Браузер не открылся", "浏览器未打开", "Browser didn
 _add("Нажмите «Открыть браузер снова» или скопируйте код вручную", "请点击「重新打开浏览器」按钮或手动复制代码", "Click 'Reopen Browser' or copy the code manually")
 _add("Файл плагина отсутствует", "插件文件缺失", "Plugin file missing")
 _add("Исходный файл плагина не найден", "找不到插件源文件", "Cannot find plugin source file")
-_add("Проверка автоматической публикации...", "正在检查自动上架配置…", "Checking auto-publish setup…")
 _add("Обнаружен доступ на запись в репозиторий, публикация напрямую...", "检测到仓库写权限，直接上架…", "Write access detected, publishing directly…")
 _add("Опубликовано", "发布成功", "Published")
 _add("Плагин опубликован. Другие пользователи увидят его после обновления marketplace.", "插件已直接上架，其他用户刷新市场即可看到。", "Plugin is now live. Other users will see it after refreshing the marketplace.")
-_add("Плагин отправлен и автоматически появится в течение нескольких секунд.", "插件已提交，将在几秒内自动上架。", "Plugin submitted. It will go live automatically within seconds.")
+_add("Плагин отправлен. Он появится после проверки и слияния PR.", "插件已提交，审核通过并合并 PR 后上架。", "Plugin submitted. It will go live after the PR is reviewed and merged.")
 _add("Установлено", "已安装", "Installed")
 _add("Плагинов пока нет. Используйте «Импортировать плагин...» или поместите .py в папку плагинов и повторите сканирование.", "暂无插件。点击\"导入插件…\"添加 .py 插件文件，或将插件放入插件目录后重新扫描。", "No plugins yet. Use \"Import Plugin…\" to add a .py file, or drop plugins into the folder and rescan.")
 _add("Сначала опубликуйте плагин для авторизации; для снятия с публикации также требуется учетная запись GitHub.", "请先发布一个插件完成授权，下架也需要 GitHub 身份。", "Publish a plugin first to complete authorization; unpublish also requires GitHub identity.")
@@ -656,7 +655,7 @@ _EXTRA_FRAGMENTS = {
     "上限 64KB，当前 ": "Лимит 64 КБ, сейчас ",
     "KB": " КБ",
     "✓ 已直接上架：": "✓ Опубликовано напрямую: ",
-    "✓ 已提交，正在自动上架：": "✓ Отправлено, автоматическая публикация: ",
+    "✓ 已提交，等待审核：": "✓ Отправлено, ожидает проверки: ",
     "## 下架插件": "## Снятие плагина с публикации",
     "由 NetPulse 插件市场一键下架功能自动创建。": "Создано функцией снятия плагина с публикации в marketplace NetPulse.",
     "已导出 ": "Экспортировано ", " 条监控记录": " записей мониторинга",
