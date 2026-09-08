@@ -1,5 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 # NetPulse 打包配置（onedir 模式，供 Inno Setup 打安装包）：
+import os
+
 # 排除环境中无关的可编辑安装包（phantom_backend 等），
 # 避免把 torch/scipy 等巨型依赖拖进 exe。
 
@@ -31,6 +33,15 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+
+
+# PyInstaller can collect an incompatible ICU runtime from another dependency.
+# Qt uses the ICU runtime shipped with Windows; bundling ICU 78 hides required
+# Qt entry points and breaks QtCore loading.
+a.binaries = [
+    item for item in a.binaries
+    if os.path.basename(item[0]).lower() not in {'icuuc.dll', 'icudt78.dll'}
+]
 
 pyz = PYZ(a.pure)
 
