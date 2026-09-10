@@ -8,7 +8,7 @@
 #define MyAppAUMID "FlowBench.App"
 
 [Setup]
-AppId={{8F4A2C1E-9B3D-4E6A-B5C7-1A2B3C4D5E6F}
+AppId={{652A3085-2CA0-4898-B675-C69E34D5AE6D}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
@@ -43,6 +43,57 @@ Name: "desktopicon"; Description: "{cm:DesktopIcon}"; GroupDescription: "{cm:Add
 
 [Files]
 Source: "dist\{#MyAppDirName}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+
+[Code]
+const
+  OldAppId = '{8F4A2C1E-9B3D-4E6A-B5C7-1A2B3C4D5E6F}';
+
+function GetOldUninstallString(): String;
+var
+  UnInstPath: String;
+  UnInstallString: String;
+begin
+  UnInstPath := 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\' + OldAppId + '_is1';
+  Result := '';
+  if not RegQueryStringValue(HKLM, UnInstPath, 'UninstallString', UnInstallString) then
+    RegQueryStringValue(HKCU, UnInstPath, 'UninstallString', UnInstallString);
+  Result := UnInstallString;
+end;
+
+function InitializeSetup(): Boolean;
+var
+  UninstallString: String;
+  ResultCode: Integer;
+  PromptText: String;
+begin
+  Result := True;
+  UninstallString := GetOldUninstallString();
+  if UninstallString <> '' then
+  begin
+    PromptText := 'Detected a previous installation (NetPulse / old FlowBench). It will be uninstalled first, then FlowBench will be installed to a new folder. Continue?' + #13#10#13#10 +
+                  '检测到旧版本（NetPulse / 旧版 FlowBench）。安装程序将先卸载旧版本（包括旧目录中的 NetPulse.exe），再把 FlowBench 安装到新目录。是否继续？';
+    if MsgBox(PromptText, mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      UninstallString := RemoveQuotes(UninstallString);
+      if Exec(UninstallString, '/VERYSILENT /NORESTART /SUPPRESSMSGBOXES', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
+      begin
+        if ResultCode <> 0 then
+        begin
+          MsgBox('Failed to uninstall the old version. Setup will exit.' + #13#10 + '旧版本卸载失败，安装将中止。', mbError, MB_OK);
+          Result := False;
+        end;
+      end
+      else
+      begin
+        MsgBox('Could not run the old uninstaller. Setup will exit.' + #13#10 + '无法运行旧版本卸载程序，安装将中止。', mbError, MB_OK);
+        Result := False;
+      end;
+    end
+    else
+      Result := False;
+  end;
+end;
 
 [Icons]
 Name: "{autoprograms}\FlowBench"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Comment: "{cm:ProgramComment}"; AppUserModelID: "{#MyAppAUMID}"
