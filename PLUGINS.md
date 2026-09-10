@@ -304,6 +304,29 @@ ctx.subscribe_metrics(on_metrics)
 3. 点击发布 —— 软件自动走浏览器 GitHub OAuth，无需手动生成令牌。外部提交会创建 PR，只有维护者审核合并后才上架。
 4. 发新版本只需改 `version` 再发布一次 —— 用户会看到"更新"按钮。
 
+### 维护者：直接修改仓库内的插件
+
+批量重命名、修复源码等操作会改变插件的 SHA-256，即使版本号没有变化，
+也必须同步更新市场索引，否则客户端会以 `sha256 mismatch` 拒绝安装。
+不要关闭客户端校验，也不要只按 Windows 工作区文件计算哈希：Git 可能在
+暂存时转换 CRLF/LF 换行，导致上传后的文件字节不同。
+
+在仓库根目录依次执行：
+
+```powershell
+# 先暂存本次要发布的插件源码（把文件名替换成实际修改的插件）
+git add marketplace/lucky_wheel.py
+# 按 Git 暂存区的真实文件字节更新所有仓库内插件的校验值
+python tools/marketplace_checksums.py --write
+python tools/marketplace_checksums.py --check
+git add marketplace/plugins-index.json
+python -m unittest discover -s tests -p "test_marketplace_checksums.py"
+```
+
+将插件源码与更新后的索引一起提交、推送到市场使用的 `master` 分支。
+工具不会下载或改写外部 URL 插件的校验值。仅修改本地文件不会改变在线市场；
+推送后用户需在市场点击刷新，再重试安装。
+
 ## 安全须知
 
 - 插件运行于主程序进程内，拥有同等权限。请只安装可信来源的插件。
