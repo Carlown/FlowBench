@@ -100,11 +100,11 @@ class HeadlessStressJob:
         self.t0 = time.monotonic()
         self.end = self.t0 + int(self.config["duration"])
         bucket = TokenBucket(self.config["rate"])
-        self.threads = [threading.Thread(target=self._worker, args=(bucket,), daemon=True, name="netpulse-worker")
+        self.threads = [threading.Thread(target=self._worker, args=(bucket,), daemon=True, name="flowbench-worker")
                         for _ in range(int(self.config["threads"]))]
         for thread in self.threads:
             thread.start()
-        threading.Thread(target=self._supervise, daemon=True, name="netpulse-supervisor").start()
+        threading.Thread(target=self._supervise, daemon=True, name="flowbench-supervisor").start()
         return True
 
     def stop(self):

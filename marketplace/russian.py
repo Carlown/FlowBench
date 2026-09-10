@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Russian language pack for NetPulse.
+"""Russian language pack for FlowBench.
 
 The host keeps its normal Chinese/English resource pairs.  This plugin wraps
 both translation entry points and also refreshes widgets which were created
@@ -72,9 +72,9 @@ _add("Минуты", "分钟", "min")
 _add("Часы", "小时", "hour")
 _add("Дни", "天", "day")
 _add("Заголовки (HTTP, необязательно)", "请求头(HTTP, 可选)", "Headers (HTTP, optional)")
-_add("Заголовки должны быть объектом JSON, например {\"User-Agent\": \"NetPulse\"}",
-     "请求头必须是 JSON 对象，例如 {\"User-Agent\": \"NetPulse\"}",
-     "Headers must be a JSON object, for example {\"User-Agent\": \"NetPulse\"}")
+_add("Заголовки должны быть объектом JSON, например {\"User-Agent\": \"FlowBench\"}",
+     "请求头必须是 JSON 对象，例如 {\"User-Agent\": \"FlowBench\"}",
+     "Headers must be a JSON object, for example {\"User-Agent\": \"FlowBench\"}")
 _add("Заголовки должны быть корректным JSON", "请求头须为合法 JSON", "Headers must be valid JSON")
 _add("Заголовки должны быть объектом JSON", "请求头必须是 JSON 对象", "Headers must be a JSON object")
 _add("Количество или размер заголовков превышает ограничение", "请求头数量或大小超出限制", "Headers exceed the count or size limit")
@@ -559,8 +559,8 @@ _FRAGMENTS = {
     "当前筛选：": "Активные фильтры: ", "暂无可安装的插件": "Нет доступных для установки плагинов",
     "没有找到匹配 ": "Не найдено плагинов, соответствующих ", " 的插件，可清空关键词或筛选": "; очистите запрос или фильтры",
     "匹配 ": "Совпадений: ", " 个插件": " плагинов", "共 ": "Всего ",
-    "另有 ": "; еще ", " 个需要升级 NetPulse": " требуют более новой версии NetPulse",
-    " 个需要升级 NetPulse": " требуют более новой версии NetPulse",
+    "另有 ": "; еще ", " 个需要升级 FlowBench": " требуют более новой версии FlowBench",
+    " 个需要升级 FlowBench": " требуют более новой версии FlowBench",
     "当前筛选条件": "активным фильтрам", "市场加载失败：": "Ошибка загрузки marketplace: ",
     "请检查网络后点击": "проверьте сеть и нажмите ", "刷新": "Обновить",
     "（离线缓存）": " (офлайн-кэш)",
@@ -629,7 +629,7 @@ _EXTRA_FRAGMENTS = {
     "## 新插件提交": "## Отправка нового плагина",
     "新插件提交": "Отправка нового плагина",
     "插件 ID": "ID плагина", "名称": "Название", "版本": "Версия", "作者": "Автор",
-    "由 NetPulse 客户端一键发布。": "Опубликовано одним нажатием из клиента NetPulse.",
+    "由 FlowBench 客户端一键发布。": "Опубликовано одним нажатием из клиента FlowBench.",
     "收藏：": "Избранное: ",
     "确定要下架插件「": "Снять плагин с публикации «",
     "」吗？": "»?",
@@ -657,7 +657,7 @@ _EXTRA_FRAGMENTS = {
     "✓ 已直接上架：": "✓ Опубликовано напрямую: ",
     "✓ 已提交，等待审核：": "✓ Отправлено, ожидает проверки: ",
     "## 下架插件": "## Снятие плагина с публикации",
-    "由 NetPulse 插件市场一键下架功能自动创建。": "Создано функцией снятия плагина с публикации в marketplace NetPulse.",
+    "由 FlowBench 插件市场一键下架功能自动创建。": "Создано функцией снятия плагина с публикации в marketplace FlowBench.",
     "已导出 ": "Экспортировано ", " 条监控记录": " записей мониторинга",
     "已恢复 ": "Восстановлено ", " 项偏好；原设置已保存为 ": " параметров; исходные настройки сохранены как ",
     "已写入 ": "Записано ", " 项安全偏好，敏感数据未包含。": " безопасных параметров; конфиденциальные данные не включены.",
@@ -680,7 +680,7 @@ _EXTRA_FRAGMENTS = {
     "来自插件：共 ": "Из плагина: всего ",
     " 个": " элементов",
     "已保存到 ": "Сохранено в ", "配置已导出: ": "Конфигурация экспортирована: ",
-    "配置文件来自更新版本的 NetPulse（v": "Файл конфигурации создан более новой версией NetPulse (v",
+    "配置文件来自更新版本的 FlowBench（v": "Файл конфигурации создан более новой версией FlowBench (v",
     "），部分设置可能无法识别。": "); некоторые параметры могут быть неизвестны.",
     "已加载 ": "Загружено ", " 个目标配置": " конфигураций целей", "配置已导入: ": "Конфигурация импортирована: ",
     "配置文件格式错误：": "Недопустимый формат файла конфигурации: ",
@@ -870,13 +870,13 @@ def uninstall():
     _patched = False
 
 
-class Plugin(NetPulsePlugin):
+class Plugin(FlowBenchPlugin):
     name = ("Русский язык", "Russian Language Pack")
     version = "1.0"
-    author = "NetPulse"
+    author = "FlowBench"
     description = (
-        "Полный русский перевод интерфейса NetPulse; применяется сразу.",
-        "Complete Russian translation of the NetPulse interface; applies immediately.",
+        "Полный русский перевод интерфейса FlowBench; применяется сразу.",
+        "Complete Russian translation of the FlowBench interface; applies immediately.",
     )
     icon = "LANGUAGE"
     category = "ui"

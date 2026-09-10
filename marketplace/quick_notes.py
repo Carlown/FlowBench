@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-"""NetPulse example plugin: a small bilingual notes page.
+"""FlowBench example plugin: a small bilingual notes page.
 
 The note is stored through PluginContext, so it survives app restarts while
 remaining isolated from the host application's other settings.
 """
 
 
-class Plugin(NetPulsePlugin):
+class Plugin(FlowBenchPlugin):
     name = ("快速备注", "Quick Notes")
     version = "1.0"
-    author = "NetPulse"
+    author = "FlowBench"
     description = ("记录一条本地备注并显示当前应用版本",
                    "Save a local note and show the current app version")
     icon = "EDIT"

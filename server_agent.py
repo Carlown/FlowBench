@@ -1,4 +1,4 @@
-"""Headless NetPulse server agent.
+"""Headless FlowBench server agent.
 
 The agent is a separate deployment target and does not alter the existing GUI.
 It works on Windows Server and Linux because it has no Qt/desktop dependency.
@@ -261,7 +261,7 @@ def run_agent(config, config_path):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="NetPulse headless server agent")
+    parser = argparse.ArgumentParser(description="FlowBench headless server agent")
     parser.add_argument("--config", default="agent.json")
     args = parser.parse_args(argv)
     path = Path(args.config).expanduser().resolve()

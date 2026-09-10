@@ -143,7 +143,7 @@ def _solid_heart_icon(color="#E81123") -> QIcon:
 
 # GitHub 一键发布相关常量
 _REPO_OWNER = "Carlown"
-_REPO_NAME = "NetPulse"
+_REPO_NAME = "FlowBench"
 _REPO_BRANCH = "master"
 _MARKET_DIR = "marketplace"
 _GH_API = "https://api.github.com"
@@ -153,7 +153,7 @@ def gh_headers(token):
     return {
         "Authorization": f"token {token}",
         "Accept": "application/vnd.github+json",
-        "User-Agent": "NetPulse-Plugin-Publisher",
+        "User-Agent": "FlowBench-Plugin-Publisher",
     }
 
 
@@ -1127,7 +1127,7 @@ class PluginMarketPage(QWidget):
     def _normalize_market_entry(entry: dict) -> dict:
         """给旧版官方索引补齐发布者字段，保证离线缓存也能识别作者。"""
         if (not entry.get("publisher")
-                and str(entry.get("author", "")).strip() == "NetPulse"
+                and str(entry.get("author", "")).strip() == "FlowBench"
                 and str(entry.get("homepage", "")).startswith(
                     f"https://github.com/{_REPO_OWNER}/")):
             entry["publisher"] = _REPO_OWNER
@@ -1707,8 +1707,8 @@ class PluginMarketPage(QWidget):
                       or self._filter_state != "all" or self._favorites_only)
         src = self._market_source_suffix
         incompatible = self._incompatible_count
-        upgrade_zh = f"；另有 {incompatible} 个需要升级 NetPulse" if incompatible else ""
-        upgrade_en = (f"; {incompatible} require a newer NetPulse"
+        upgrade_zh = f"；另有 {incompatible} 个需要升级 FlowBench" if incompatible else ""
+        upgrade_en = (f"; {incompatible} require a newer FlowBench"
                       if incompatible else "")
         if not total:
             self.statusLabel.setText(L(
@@ -1950,9 +1950,9 @@ class PluginMarketPage(QWidget):
             "base": _REPO_BRANCH,
             "body": L(
                 f"## 下架插件\n\n- **插件 ID**: {pid}\n- **名称**: {entry.get('name', '')}\n\n"
-                f"由 NetPulse 插件市场一键下架功能自动创建。",
+                f"由 FlowBench 插件市场一键下架功能自动创建。",
                 f"## Unpublish plugin\n\n- **Plugin ID**: {pid}\n- **Name**: {entry.get('name', '')}\n\n"
-                f"Created automatically by NetPulse Marketplace."),
+                f"Created automatically by FlowBench Marketplace."),
         }, timeout=15)
         if r.status_code not in (200, 201):
             raise Exception(f"PR creation failed ({r.status_code}): {r.text}")
@@ -2068,7 +2068,7 @@ class MarketView(QWidget):
 # ---------- 发布对话框 ----------
 
 def _scan_plugin_meta(path):
-    """AST 解析插件源码，提取 NetPulsePlugin 子类的类属性元数据
+    """AST 解析插件源码，提取 FlowBenchPlugin 子类的类属性元数据
     （name/version/author/description/icon/category）。
     不执行插件代码，禁用/加载失败的插件也能安全读取。"""
     import ast
@@ -2082,7 +2082,7 @@ def _scan_plugin_meta(path):
         if not isinstance(node, ast.ClassDef):
             continue
         bases = {b.id for b in node.bases if isinstance(b, ast.Name)}
-        if "NetPulsePlugin" not in bases:
+        if "FlowBenchPlugin" not in bases:
             continue
         for item in node.body:
             if (isinstance(item, ast.Assign) and len(item.targets) == 1
@@ -2201,7 +2201,7 @@ class PublishDialog(MessageBoxBase):
         trow.addWidget(self.tokenEdit, 1)
         tokenLink = PushButton(L("获取 Token", "Get Token"), self.tokenRow)
         tokenLink.clicked.connect(lambda: QDesktopServices.openUrl(
-            QUrl("https://github.com/settings/tokens/new?scopes=public_repo,workflow&description=NetPulse%20Plugin%20Publish")))
+            QUrl("https://github.com/settings/tokens/new?scopes=public_repo,workflow&description=FlowBench%20Plugin%20Publish")))
         trow.addWidget(tokenLink)
         self.viewLayout.addWidget(self.tokenRow)
         if settings.github_token or GITHUB_OAUTH_CLIENT_ID:
@@ -2338,11 +2338,11 @@ class PublishDialog(MessageBoxBase):
         cat = str(getattr(p, "category", "") or "").strip().lower()
         if any(k == cat for k, _ in _PLUGIN_CATEGORIES):
             return cat
-        from app.services.plugins import NetPulsePlugin
+        from app.services.plugins import FlowBenchPlugin
         if any(v.get("pid") == rec.pid
                for v in plugin_manager._protocols.values()):
             return "protocol"
-        if type(p).create_widget is not NetPulsePlugin.create_widget:
+        if type(p).create_widget is not FlowBenchPlugin.create_widget:
             return "ui"
         return "tool"
 
@@ -2405,7 +2405,7 @@ class PublishDialog(MessageBoxBase):
             "file": f"{rec.pid}.py",
             "sha256": digest,
             "min_app": "1.0.7",
-            "homepage": "https://github.com/Carlown/NetPulse",
+            "homepage": "https://github.com/Carlown/FlowBench",
         }
         if self._icon_data_uri:
             entry["icon"] = self._icon_data_uri
@@ -2643,13 +2643,13 @@ class PublishDialog(MessageBoxBase):
             f"- **名称**: {entry['name'][0]} / {entry['name'][1]}\n"
             f"- **版本**: {entry['version']}\n"
             f"- **作者**: {entry.get('author', '')}\n\n"
-            f"由 NetPulse 客户端一键发布。",
+            f"由 FlowBench 客户端一键发布。",
             f"## New plugin submission\n\n"
             f"- **Plugin ID**: {pid}\n"
             f"- **Name**: {entry['name'][0]} / {entry['name'][1]}\n"
             f"- **Version**: {entry['version']}\n"
             f"- **Author**: {entry.get('author', '')}\n\n"
-            f"Published from the NetPulse client.")
+            f"Published from the FlowBench client.")
         r = requests.post(f"{upstream}/pulls", headers=headers, json={
             "title": f"Publish plugin: {pid}",
             "head": f"{username}:{branch_name}",

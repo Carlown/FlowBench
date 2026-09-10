@@ -1,12 +1,12 @@
 /**
- * NetPulse 协同测试 - Cloudflare Workers 中继服务器
+ * FlowBench 协同测试 - Cloudflare Workers 中继服务器
  * 
  * 完全免费部署：
  * 1. 去 https://dash.cloudflare.com/ 注册（免费，不用信用卡）
  * 2. 进入 Workers & Pages → Create application → Create Worker
  * 3. 把本文件内容全部粘贴替换掉默认代码
  * 4. 点击 Deploy，就会得到一个 https://xxx.xxx.workers.dev 的地址
- * 5. 在 NetPulse 设置里把中继地址改为这个地址（去掉 https://，直接填 xxx.xxx.workers.dev）
+ * 5. 在 FlowBench 设置里把中继地址改为这个地址（去掉 https://，直接填 xxx.xxx.workers.dev）
  */
 
 const ROOM_TTL = 300; // 房间有效期 5 分钟
@@ -183,7 +183,7 @@ export default {
 
     // WebSocket 升级
     if (request.headers.get('Upgrade') !== 'websocket') {
-      return new Response('NetPulse Relay Server - Use WebSocket', { status: 400 });
+      return new Response('FlowBench Relay Server - Use WebSocket', { status: 400 });
     }
 
     const pair = new WebSocketPair();

@@ -10,13 +10,13 @@ from app.services.settings import settings
 
 class AuditLog:
     def __init__(self):
-        base = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "NetPulse", "logs")
+        base = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "FlowBench", "logs")
         os.makedirs(base, exist_ok=True)
         self.file_path = os.path.join(base, time.strftime("%Y-%m-%d") + ".log")
         self.entries = deque(maxlen=5000)
         self._lock = threading.Lock()
 
-        self._logger = logging.getLogger("NetPulse")
+        self._logger = logging.getLogger("FlowBench")
         self._logger.setLevel(logging.INFO)
         if not self._logger.handlers:
             fh = logging.FileHandler(self.file_path, encoding="utf-8")

@@ -1,9 +1,9 @@
-"""NetPulse 插件系统：发现、加载、卸载、启用/禁用第三方扩展。
+"""FlowBench 插件系统：发现、加载、卸载、启用/禁用第三方扩展。
 
-插件目录：%APPDATA%/NetPulse/plugins/
+插件目录：%APPDATA%/FlowBench/plugins/
 插件格式：
-  1) 单文件插件：xxx.py（定义 NetPulsePlugin 子类）
-  2) 文件夹插件：xxx/main.py（定义 NetPulsePlugin 子类）
+  1) 单文件插件：xxx.py（定义 FlowBenchPlugin 子类）
+  2) 文件夹插件：xxx/main.py（定义 FlowBenchPlugin 子类）
 插件 ID = 文件名 / 文件夹名（唯一且稳定）。
 
 安全提示：插件是第三方代码，运行于主程序进程内，拥有同等权限。
@@ -26,7 +26,7 @@ PLUGIN_API_VERSION = 1
 def plugins_dir() -> str:
     """插件目录（自动创建）。"""
     base = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")),
-                        "NetPulse", "plugins")
+                        "FlowBench", "plugins")
     os.makedirs(base, exist_ok=True)
     return base
 
@@ -90,11 +90,11 @@ def _i18n_text(v):
     return str(v)
 
 
-class NetPulsePlugin:
+class FlowBenchPlugin:
     """插件基类：插件继承此类实现扩展功能。
 
-    插件文件中可直接使用 NetPulsePlugin（宿主已注入模块命名空间），
-    也可 from app.services.plugins import NetPulsePlugin。
+    插件文件中可直接使用 FlowBenchPlugin（宿主已注入模块命名空间），
+    也可 from app.services.plugins import FlowBenchPlugin。
     """
 
     id = "unknown"                # 由宿主按文件/文件夹名覆盖
@@ -201,7 +201,7 @@ class _PluginRecord:
 
     def __init__(self, path: str):
         self.path = path              # main.py 完整路径
-        self.plugin = None            # NetPulsePlugin 实例（未加载为 None）
+        self.plugin = None            # FlowBenchPlugin 实例（未加载为 None）
         self.error = None             # 加载错误信息
         self._meta = {}               # 加载成功后缓存的元数据（卸载后仍可显示）
 
@@ -275,7 +275,7 @@ class _PluginRecord:
 class PluginManager(QObject):
     """插件管理器：扫描目录、安全加载、启停、导入、删除。"""
 
-    loaded = Signal(object)   # NetPulsePlugin 实例
+    loaded = Signal(object)   # FlowBenchPlugin 实例
     unloaded = Signal(str)    # 插件 ID
     changed = Signal()        # 列表/状态变化（设置页刷新）
 
@@ -413,18 +413,18 @@ class PluginManager(QObject):
         pid = rec.pid
         rec.error = None
         try:
-            mod_name = f"netpulse_plugin_{pid}"
+            mod_name = f"flowbench_plugin_{pid}"
             spec = importlib.util.spec_from_file_location(mod_name, rec.path)
             mod = importlib.util.module_from_spec(spec)
             # 注入基类，插件文件无需 import 即可继承；sys.modules 注册支持包内相对导入
-            mod.__dict__["NetPulsePlugin"] = NetPulsePlugin
+            mod.__dict__["FlowBenchPlugin"] = FlowBenchPlugin
             mod.__dict__["PluginContext"] = PluginContext
             sys.modules[mod_name] = mod
             spec.loader.exec_module(mod)
             cls = self._find_plugin_class(mod)
             if cls is None:
                 raise RuntimeError(
-                    f"no NetPulsePlugin subclass found in {os.path.basename(rec.path)}")
+                    f"no FlowBenchPlugin subclass found in {os.path.basename(rec.path)}")
             plugin = cls()
             plugin.id = pid
             plugin.on_load(PluginContext(pid))
@@ -446,11 +446,11 @@ class PluginManager(QObject):
 
     @staticmethod
     def _find_plugin_class(mod):
-        """在模块命名空间中查找 NetPulsePlugin 子类（取最后定义的）。"""
+        """在模块命名空间中查找 FlowBenchPlugin 子类（取最后定义的）。"""
         found = None
         for obj in vars(mod).values():
-            if (isinstance(obj, type) and issubclass(obj, NetPulsePlugin)
-                    and obj is not NetPulsePlugin and obj.__module__ == mod.__name__):
+            if (isinstance(obj, type) and issubclass(obj, FlowBenchPlugin)
+                    and obj is not FlowBenchPlugin and obj.__module__ == mod.__name__):
                 found = obj
         return found
 
@@ -466,7 +466,7 @@ class PluginManager(QObject):
         rec.plugin = None
         self._cleanup_registrations(pid)
         # 从 sys.modules 清除旧模块，避免更新时加载到缓存的旧代码
-        mod_prefix = f"netpulse_plugin_{pid}"
+        mod_prefix = f"flowbench_plugin_{pid}"
         for key in list(sys.modules.keys()):
             if key == mod_prefix or key.startswith(mod_prefix + "."):
                 del sys.modules[key]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""NetPulse 繁體中文語言包：把界面文字即時轉換為繁體中文。
+"""FlowBench 繁體中文語言包：把界面文字即時轉換為繁體中文。
 
 工作原理（純插件實現，不修改宿主代碼）：
 1. 替換 app.ui.i18n.L 與 app.services.plugins._i18n_text 兩個翻譯入口，
@@ -16,7 +16,7 @@
 import re
 
 # --------------------------------------------------------------------------
-# 简繁映射表（简=繁，空格分隔；覆盖 NetPulse 界面全部用字 + 常用扩展）
+# 简繁映射表（简=繁，空格分隔；覆盖 FlowBench 界面全部用字 + 常用扩展）
 # --------------------------------------------------------------------------
 _ST_PAIRS = """
 与=與 专=專 东=東 丢=丟 两=兩 严=嚴 个=個 临=臨 为=為 举=舉 义=義
@@ -255,14 +255,14 @@ def convert_ui():
 # --------------------------------------------------------------------------
 # 插件主体
 # --------------------------------------------------------------------------
-class Plugin(NetPulsePlugin):
+class Plugin(FlowBenchPlugin):
     name = ("繁體中文語言包", "Traditional Chinese Language Pack")
     version = "1.0"
-    author = "NetPulse"
+    author = "FlowBench"
     description = (
-        "將 NetPulse 界面文字即時轉換為繁體中文（啟用即生效，無需重啟）；"
+        "將 FlowBench 界面文字即時轉換為繁體中文（啟用即生效，無需重啟）；"
         "停用並重啟後恢復簡體。",
-        "Converts the NetPulse UI to Traditional Chinese instantly; "
+        "Converts the FlowBench UI to Traditional Chinese instantly; "
         "disable and restart to revert.")
     icon = "LANGUAGE"      # FluentIcon 名
     category = "ui"        # 市场分类：界面

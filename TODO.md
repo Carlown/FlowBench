@@ -1,4 +1,4 @@
-# NetPulse 1.2.2 自测与修复清单
+# FlowBench 1.2.2 自测与修复清单
 
 ## 已完成
 - [x] 自测全部 Python 文件编译与 AST。
@@ -15,16 +15,16 @@
 - [x] 验证本地与服务器 Agent 任务的实时数据、进度条和完成状态。
 - [x] 验证协同测试节点完成后回传最终流量并在协同日志显示。
 - [x] 统一版本号为 1.2.2：更新检查、安装包、README。
-- [x] 重新打包 `NetPulse`、`NetPulse-Agent`、`NetPulse-Hub`、`NetPulse-AgentCtl`。
+- [x] 重新打包 `FlowBench`、`FlowBench-Agent`、`FlowBench-Hub`、`FlowBench-AgentCtl`。
 - [x] 运行 `git diff --check`，无空白错误。
 
 ## 结果
 - 版本：`1.2.2`
 - 单元测试：`Ran 6 tests, OK`
-- 主程序：`dist/NetPulse/NetPulse.exe`
-- Agent：`dist/NetPulse-Agent.exe`
-- Hub：`dist/NetPulse-Hub.exe`
-- CLI：`dist/NetPulse-AgentCtl.exe`
+- 主程序：`dist/FlowBench/FlowBench.exe`
+- Agent：`dist/FlowBench-Agent.exe`
+- Hub：`dist/FlowBench-Hub.exe`
+- CLI：`dist/FlowBench-AgentCtl.exe`
 
 ## UI 调整
 - [x] 协同测试页面恢复“节点状态”统计卡，并加入总发送流量。
@@ -66,13 +66,13 @@
 ## 发布后排查
 - [x] 修复打包应用首导 `PySide6.QtCore` 失败：打包时只暴露 PYZ 命名空间模块，缺少 `PySide6.__init__` 的 DLL 目录注册。已在 `main.py` 冻结分支中注册 PySide6/shiboken6 DLL 目录，预加载 `shiboken6.Shiboken` 和 `QtCore.pyd`。
 - [x] 重新构建并通过本地运行验证（进程保持运行，不再出现 Unhandled exception）。
-- [x] 重新生成 `NetPulse-Setup-1.2.2.exe`。
-- [x] 本机直接运行 `dist/NetPulse/NetPulse.exe` 正常退出；当前构建的 Qt DLL 可在本机加载。
-- [x] Release 安装包 `NetPulse-Setup-1.2.2.exe` 已上传，SHA256: `6D1FE85F54CCA4BC8A4179EFC86B957AB00E26A713110C0CDCFEEC24682D6AF0`。
-- [ ] 如果用户安装后报 `QtCore DLL load failed`，先确认只保留一个 NetPulse 安装目录，并安装 Microsoft Visual C++ 2015-2022 x64 Redistributable。
+- [x] 重新生成 `FlowBench-Setup-1.2.2.exe`。
+- [x] 本机直接运行 `dist/FlowBench/FlowBench.exe` 正常退出；当前构建的 Qt DLL 可在本机加载。
+- [x] Release 安装包 `FlowBench-Setup-1.2.2.exe` 已上传，SHA256: `6D1FE85F54CCA4BC8A4179EFC86B957AB00E26A713110C0CDCFEEC24682D6AF0`。
+- [ ] 如果用户安装后报 `QtCore DLL load failed`，先确认只保留一个 FlowBench 安装目录，并安装 Microsoft Visual C++ 2015-2022 x64 Redistributable。
 
 ## 后续建议
-- [ ] 发布 Release 时上传 `installer/NetPulse-Setup-1.2.2.exe`。
+- [ ] 发布 Release 时上传 `installer/FlowBench-Setup-1.2.2.exe`。
 - [ ] 如有签名证书，给 Windows 安装包和 Agent exe 做代码签名。
 - [ ] Hub 公网部署建议继续使用 Nginx/Caddy 证书，一体化自签名包仅用于个人测试。
 - [ ] 在 Linux 目标机上再跑一次 `./start-all.sh`，确认系统 Python 版本差异。

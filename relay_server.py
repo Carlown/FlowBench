@@ -1,4 +1,4 @@
-"""NetPulse 协同测试 - WebSocket 中继服务器
+"""FlowBench 协同测试 - WebSocket 中继服务器
 
 用法：
     pip install websockets
@@ -9,7 +9,7 @@
     2. 创建 Python Repl，把本文件内容粘贴到 main.py
     3. 把 requirements.txt 改为：websockets
     4. 点击 Run，会得到一个 https://xxx.repl.co 的地址
-    5. 在 NetPulse 设置里把中继地址改为这个地址（去掉 https://，加 :443）
+    5. 在 FlowBench 设置里把中继地址改为这个地址（去掉 https://，加 :443）
 
 协议说明：
     - 使用 WebSocket 连接（ws:// 或 wss://）
@@ -268,7 +268,7 @@ class RelayServer:
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="NetPulse WebSocket Relay Server")
+    parser = argparse.ArgumentParser(description="FlowBench WebSocket Relay Server")
     parser.add_argument("--host", default="0.0.0.0", help="listen host (default: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=50506, help="listen port (default: 50506)")
     args = parser.parse_args()
@@ -281,7 +281,7 @@ async def main():
 
     server = RelayServer()
 
-    print(f"NetPulse WebSocket Relay Server starting on {args.host}:{args.port}...")
+    print(f"FlowBench WebSocket Relay Server starting on {args.host}:{args.port}...")
     async with websockets.serve(
         server.handle_connection,
         args.host,

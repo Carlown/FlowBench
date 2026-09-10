@@ -22,7 +22,7 @@ PORT = 50505
 MQTT_BROKER = "broker.hivemq.com"
 MQTT_PORT = 8000  # WebSocket 端口
 MQTT_TRANSPORT = "websockets"
-MQTT_TOPIC_PREFIX = "netpulse/v1/"
+MQTT_TOPIC_PREFIX = "flowbench/v1/"
 
 
 def _gen_code(length=8):
@@ -378,7 +378,7 @@ class CollabServer(QObject):
         if gen != self._gen:
             return
 
-        client_id = f"netpulse_host_{uuid.uuid4().hex[:12]}"
+        client_id = f"flowbench_host_{uuid.uuid4().hex[:12]}"
         # 局部变量持有client：仅当代数校验通过（连接成功且未被新一次生成/关闭取代）才提交到 self._mqtt_client
         client = mqtt.Client(
             mqtt.CallbackAPIVersion.VERSION2,
@@ -565,7 +565,7 @@ class CollabClient(QObject):
         self._join_result = None
         self._join_event = threading.Event()
 
-        client_id = f"netpulse_node_{uuid.uuid4().hex[:12]}"
+        client_id = f"flowbench_node_{uuid.uuid4().hex[:12]}"
         self._mqtt_client = mqtt.Client(
             mqtt.CallbackAPIVersion.VERSION2,
             client_id=client_id,

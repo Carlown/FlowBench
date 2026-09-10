@@ -125,7 +125,7 @@ class ThemeColorPicker(QWidget):
         # 简化界面：隐藏"原色"对比卡（下半截），新色卡拉伸为整块实时预览
         dlg.oldColorCard.hide()
         dlg.newColorCard.setFixedHeight(256)
-        # 显式设置关键按钮和标签，确保对话框始终跟随 NetPulse 选择的语言。
+        # 显式设置关键按钮和标签，确保对话框始终跟随 FlowBench 选择的语言。
         dlg.yesButton.setText(L("确定", "OK"))
         dlg.cancelButton.setText(L("取消", "Cancel"))
         dlg.editLabel.setText(L("编辑颜色", "Edit Color"))
@@ -302,7 +302,7 @@ class SettingsView(ScrollArea):
         bl = QVBoxLayout(about)
         bl.setContentsMargins(20, 16, 20, 16)
         bl.addWidget(StrongBodyLabel(L("关于", "About"), about))
-        bl.addWidget(BodyLabel(f"NetPulse v{APP_VERSION}", about))
+        bl.addWidget(BodyLabel(f"FlowBench v{APP_VERSION}", about))
         bl.addWidget(CaptionLabel(L("仅用于合法授权的性能测试。", "For legally authorized testing only."), about))
         brow = QHBoxLayout()
         self.disclaimerBtn = PushButton(L("查看免责声明", "View Disclaimer"), about)
@@ -425,7 +425,7 @@ class SettingsView(ScrollArea):
         import os
         import time
 
-        default_name = f"netpulse-settings-{time.strftime('%Y%m%d')}.json"
+        default_name = f"flowbench-settings-{time.strftime('%Y%m%d')}.json"
         path, _ = QFileDialog.getSaveFileName(
             self, L("导出设置备份", "Export settings backup"), default_name,
             L("JSON 设置备份 (*.json)", "JSON settings backup (*.json)"))
@@ -570,7 +570,7 @@ class SettingsView(ScrollArea):
         mode_name = L("打包版本", "Packaged") if getattr(sys, "frozen", False) else L("源码运行", "Source")
 
         lines = [
-            "NetPulse — " + L("脱敏诊断摘要", "Redacted Diagnostic Summary"),
+            "FlowBench — " + L("脱敏诊断摘要", "Redacted Diagnostic Summary"),
             L("生成时间：", "Generated: ") + datetime.now().astimezone().isoformat(timespec="seconds"),
             L("应用版本：", "App version: ") + f"{APP_VERSION} ({mode_name})",
             L("操作系统：", "OS: ") + " ".join(filter(None, (
@@ -621,7 +621,7 @@ class SettingsView(ScrollArea):
 
     def _export(self):
         path, _ = QFileDialog.getSaveFileName(self, L("导出日志", "Export log"),
-                                              "netpulse-audit.log",
+                                              "flowbench-audit.log",
                                               L("日志文件 (*.log *.txt)",
                                                 "Log files (*.log *.txt)"))
         if not path:

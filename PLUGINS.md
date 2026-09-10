@@ -1,6 +1,6 @@
-# NetPulse Plugin Development Guide
+# FlowBench Plugin Development Guide
 
-NetPulse plugins are plain Python files. If you can write Python, you can extend NetPulse — add custom test protocols, new pages, report exporters and more.
+FlowBench plugins are plain Python files. If you can write Python, you can extend FlowBench — add custom test protocols, new pages, report exporters and more.
 
 > Full working examples live in the [`marketplace/`](marketplace/) folder: `example_hello.py` (UI page + config), `example_dns.py` (custom protocol + target provider), `random_target.py` (simple tool page).
 
@@ -13,7 +13,7 @@ A minimal plugin is ~10 lines. Save this as `my_plugin.py`:
 ```python
 # -*- coding: utf-8 -*-
 
-class Plugin(NetPulsePlugin):
+class Plugin(FlowBenchPlugin):
     name = "My First Plugin"          # or ("中文名", "English name")
     version = "1.0"
     author = "you"
@@ -26,14 +26,14 @@ class Plugin(NetPulsePlugin):
         from PySide6.QtWidgets import QWidget, QVBoxLayout
         from qfluentwidgets import StrongBodyLabel
         w = QWidget(parent)
-        QVBoxLayout(w).addWidget(StrongBodyLabel("Hello NetPulse!"))
+        QVBoxLayout(w).addWidget(StrongBodyLabel("Hello FlowBench!"))
         return w                       # becomes a page in the main window
 ```
 
 Drop it into the plugins folder and restart (or reload from the plugin page):
 
 ```
-%APPDATA%\NetPulse\plugins\my_plugin.py
+%APPDATA%\FlowBench\plugins\my_plugin.py
 ```
 
 ## Plugin Format
@@ -44,7 +44,7 @@ Drop it into the plugins folder and restart (or reload from the plugin page):
 | Folder | `xxx/main.py` (+ assets) | `xxx` |
 
 - The plugin ID equals the file/folder name — stable and unique.
-- Define a class named `Plugin` inheriting `NetPulsePlugin`. The base class is injected into your module namespace — **no import needed**.
+- Define a class named `Plugin` inheriting `FlowBenchPlugin`. The base class is injected into your module namespace — **no import needed**.
 - Either format may optionally define other classes/helpers freely.
 
 ## Metadata
@@ -52,7 +52,7 @@ Drop it into the plugins folder and restart (or reload from the plugin page):
 Class attributes on `Plugin`:
 
 ```python
-class Plugin(NetPulsePlugin):
+class Plugin(FlowBenchPlugin):
     name        = ("你好插件", "Hello Plugin")   # (中文, English) tuple = bilingual
     version     = "1.2"                          # compared for marketplace updates
     author      = "Your Name"
@@ -68,7 +68,7 @@ class Plugin(NetPulsePlugin):
 ## Lifecycle Hooks
 
 ```python
-class Plugin(NetPulsePlugin):
+class Plugin(FlowBenchPlugin):
     def on_load(self, ctx): ...        # init resources, register extensions
     def on_unload(self): ...           # release resources (registered items auto-cleaned)
     def create_widget(self, parent): ...  # return a QWidget = own nav page (or None)
@@ -155,9 +155,9 @@ ctx.subscribe_metrics(on_metrics)
 
 ---
 
-# NetPulse 插件开发指南
+# FlowBench 插件开发指南
 
-NetPulse 插件就是普通的 Python 文件。会写 Python 就能扩展 NetPulse —— 自定义测试协议、新页面、报告导出器等等。
+FlowBench 插件就是普通的 Python 文件。会写 Python 就能扩展 FlowBench —— 自定义测试协议、新页面、报告导出器等等。
 
 > 完整示例在 [`marketplace/`](marketplace/) 目录：`example_hello.py`（界面 + 配置）、`example_dns.py`（自定义协议 + 目标源）、`random_target.py`（简单工具页）。
 
@@ -170,7 +170,7 @@ NetPulse 插件就是普通的 Python 文件。会写 Python 就能扩展 NetPul
 ```python
 # -*- coding: utf-8 -*-
 
-class Plugin(NetPulsePlugin):
+class Plugin(FlowBenchPlugin):
     name = "我的第一个插件"         # 或 ("中文名", "English name")
     version = "1.0"
     author = "你"
@@ -183,14 +183,14 @@ class Plugin(NetPulsePlugin):
         from PySide6.QtWidgets import QWidget, QVBoxLayout
         from qfluentwidgets import StrongBodyLabel
         w = QWidget(parent)
-        QVBoxLayout(w).addWidget(StrongBodyLabel("你好 NetPulse！"))
+        QVBoxLayout(w).addWidget(StrongBodyLabel("你好 FlowBench！"))
         return w                       # 会成为主窗口的一个页面
 ```
 
 放进插件目录，重启（或在插件页点重载）即可：
 
 ```
-%APPDATA%\NetPulse\plugins\my_plugin.py
+%APPDATA%\FlowBench\plugins\my_plugin.py
 ```
 
 ## 插件格式
@@ -201,7 +201,7 @@ class Plugin(NetPulsePlugin):
 | 文件夹 | `xxx/main.py`（可带资源） | `xxx` |
 
 - 插件 ID = 文件名/文件夹名，唯一且稳定。
-- 定义一个继承 `NetPulsePlugin` 的 `Plugin` 类。基类已注入模块命名空间，**无需 import**。
+- 定义一个继承 `FlowBenchPlugin` 的 `Plugin` 类。基类已注入模块命名空间，**无需 import**。
 - 两种格式都可以自由定义其他类和辅助函数。
 
 ## 元数据
@@ -209,7 +209,7 @@ class Plugin(NetPulsePlugin):
 `Plugin` 类的属性：
 
 ```python
-class Plugin(NetPulsePlugin):
+class Plugin(FlowBenchPlugin):
     name        = ("你好插件", "Hello Plugin")   # (中文, English) 元组 = 双语
     version     = "1.2"                          # 用于市场更新比较
     author      = "你的名字"
@@ -225,7 +225,7 @@ class Plugin(NetPulsePlugin):
 ## 生命周期钩子
 
 ```python
-class Plugin(NetPulsePlugin):
+class Plugin(FlowBenchPlugin):
     def on_load(self, ctx): ...        # 初始化资源、注册扩展
     def on_unload(self): ...           # 释放资源（注册项由宿主自动清理）
     def create_widget(self, parent): ...  # 返回 QWidget = 独立导航页（返回 None 则不加页）

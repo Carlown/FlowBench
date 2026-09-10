@@ -1,5 +1,5 @@
-# Build context expects an extracted NetPulse all-in-one Linux bundle, for example:
-#   docker build -t netpulse-node --build-context bundle=/path/to/extracted deploy/docker
+# Build context expects an extracted FlowBench all-in-one Linux bundle, for example:
+#   docker build -t flowbench-node --build-context bundle=/path/to/extracted deploy/docker
 # Simpler: copy this Dockerfile into the extracted linux/ folder and build there.
 FROM python:3.12-slim
 

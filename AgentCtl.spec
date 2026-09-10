@@ -5,4 +5,4 @@ a = Analysis(
     runtime_hooks=[], excludes=[], noarchive=False,
 )
 pyz = PYZ(a.pure)
-exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], name="NetPulse-AgentCtl", console=True)
+exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], name="FlowBench-AgentCtl", console=True)

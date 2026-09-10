@@ -20,7 +20,7 @@ def _read_saved_theme() -> bool:
     """快速读取保存的主题设置，不导入完整settings模块。返回True=深色。"""
     try:
         root = os.environ.get("APPDATA", os.path.expanduser("~"))
-        path = os.path.join(root, "NetPulse", "settings.json")
+        path = os.path.join(root, "FlowBench", "settings.json")
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -150,7 +150,7 @@ def _render_content(progress=0.0, status_text="", shimmer_pos=-0.3, dark=True) -
     name_font = QFont("Segoe UI", 26, QFont.DemiBold)
     p.setFont(name_font)
     p.setPen(name_color)
-    p.drawText(0, name_y, w, 44, Qt.AlignCenter, "NetPulse")
+    p.drawText(0, name_y, w, 44, Qt.AlignCenter, "FlowBench")
 
     # 副标题
     sub_font = QFont("Segoe UI", 9)

@@ -1,4 +1,4 @@
-"""Small in-memory control hub for NetPulse server agents.
+"""Small in-memory control hub for FlowBench server agents.
 
 Run this behind an HTTPS reverse proxy in production. The hub never sends
 traffic to a target itself; it only queues bounded, authenticated jobs for a
@@ -159,7 +159,7 @@ class HubState:
 
 
 class HubHandler(BaseHTTPRequestHandler):
-    server_version = "NetPulseHub/1.0"
+    server_version = "FlowBenchHub/1.0"
 
     def _json(self, status, payload):
         raw = compact_json(payload)
@@ -197,7 +197,7 @@ class HubHandler(BaseHTTPRequestHandler):
         try:
             parts = self._parts()
             if parts == ["health"]:
-                return self._json(200, {"ok": True, "service": "netpulse-hub"})
+                return self._json(200, {"ok": True, "service": "flowbench-hub"})
             if parts == ["v1", "controller", "agents"]:
                 self._require_controller()
                 return self._json(200, {"agents": self.state.list_agents()})
@@ -266,7 +266,7 @@ def load_config(path: str):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="NetPulse authenticated agent control hub")
+    parser = argparse.ArgumentParser(description="FlowBench authenticated agent control hub")
     parser.add_argument("--config", default="hub.json")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
@@ -284,7 +284,7 @@ def main(argv=None):
     else:
         scheme = "http"
     server.state = HubState(load_config(args.config), args.config)
-    print(f"NetPulse Hub listening on {scheme}://{args.host}:{args.port}", flush=True)
+    print(f"FlowBench Hub listening on {scheme}://{args.host}:{args.port}", flush=True)
     print("Put this behind HTTPS before exposing it to the Internet.", flush=True)
     if args.wait_ready > 0:
         time.sleep(args.wait_ready)

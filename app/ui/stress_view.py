@@ -288,7 +288,7 @@ class StressView(ScrollArea):
         first = first.replace("https___", "").replace("http___", "").strip("_")
         first = first[:40]  # 防止文件名过长
         ts = _time.strftime("%Y%m%d_%H%M%S")
-        default_name = f"netpulse_{first}_{ts}.json"
+        default_name = f"flowbench_{first}_{ts}.json"
         path, _ = QFileDialog.getSaveFileName(
             self.window(),
             L("导出配置", "Export Config"),
@@ -345,8 +345,8 @@ class StressView(ScrollArea):
         ver = cfg.get("version", 0)
         if ver > CONFIG_VERSION:
             InfoBar.warning(L("版本提示", "Version Notice"),
-                            L(f"配置文件来自更新版本的 NetPulse（v{ver}），部分设置可能无法识别。",
-                              f"Config is from a newer NetPulse (v{ver}); some settings may be ignored."),
+                            L(f"配置文件来自更新版本的 FlowBench（v{ver}），部分设置可能无法识别。",
+                              f"Config is from a newer FlowBench (v{ver}); some settings may be ignored."),
                             parent=self.window(), duration=4000)
         if self._apply_config(cfg):
             n = len(cfg.get("targets", []))
@@ -709,8 +709,8 @@ class StressView(ScrollArea):
         if not isinstance(headers, dict):
             InfoBar.warning(
                 L("请求头格式错误", "Invalid headers"),
-                L("请求头必须是 JSON 对象，例如 {\"User-Agent\": \"NetPulse\"}",
-                  "Headers must be a JSON object, for example {\"User-Agent\": \"NetPulse\"}"),
+                L("请求头必须是 JSON 对象，例如 {\"User-Agent\": \"FlowBench\"}",
+                  "Headers must be a JSON object, for example {\"User-Agent\": \"FlowBench\"}"),
                 parent=self.window())
             return
 
@@ -1036,7 +1036,7 @@ class StressView(ScrollArea):
     def _do_export_report_json(self, r):
         ts = _time.strftime("%Y%m%d_%H%M%S")
         path, _ = QFileDialog.getSaveFileName(self, L("导出报告", "Export report"),
-                                              f"netpulse-report_{ts}.json", "JSON (*.json)")
+                                              f"flowbench-report_{ts}.json", "JSON (*.json)")
         if not path:
             return
         if not path.lower().endswith(".json"):
@@ -1092,7 +1092,7 @@ class StressView(ScrollArea):
     def _do_export_report_csv(self, r):
         ts = _time.strftime("%Y%m%d_%H%M%S")
         path, _ = QFileDialog.getSaveFileName(self, L("导出报告", "Export report"),
-                                              f"netpulse-report_{ts}.csv", "CSV (*.csv)")
+                                              f"flowbench-report_{ts}.csv", "CSV (*.csv)")
         if not path:
             return
         if not path.lower().endswith(".csv"):
@@ -1112,7 +1112,7 @@ class StressView(ScrollArea):
     def _do_export_report_plugin(self, r, fn, label):
         ts = _time.strftime("%Y%m%d_%H%M%S")
         path, _ = QFileDialog.getSaveFileName(self, L("导出报告", "Export report"),
-                                              f"netpulse-report_{ts}", L("所有文件 (*.*)", "All files (*.*)"))
+                                              f"flowbench-report_{ts}", L("所有文件 (*.*)", "All files (*.*)"))
         if not path:
             return
         try:

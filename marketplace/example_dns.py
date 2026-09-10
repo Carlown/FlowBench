@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""NetPulse 市场插件：注册自定义 "DNS" 测试协议 + 目标集提供者。
+"""FlowBench 市场插件：注册自定义 "DNS" 测试协议 + 目标集提供者。
 
 功能：
 - register_protocol: 协议下拉框出现 DNS 项；目标填 DNS 服务器地址（如 223.5.5.5），端口 53
@@ -67,10 +67,10 @@ def _cleanup_state(state):
 _STATES = []
 
 
-class Plugin(NetPulsePlugin):
+class Plugin(FlowBenchPlugin):
     name = ("DNS 协议示例", "DNS Protocol Example")
     version = "1.0"
-    author = "NetPulse"
+    author = "FlowBench"
     description = ("注册自定义 DNS 测试协议与目标集提供者，演示插件扩展 API",
                    "Registers a custom DNS test protocol and target provider")
 

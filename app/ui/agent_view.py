@@ -117,7 +117,7 @@ class GenerateNodeDialog(MessageBoxBase):
 
     def _update_output(self):
         if not self._custom_output:
-            path = self._output_dir / f"NetPulse-{self._safe_name(self.nameEdit.text())}.zip"
+            path = self._output_dir / f"FlowBench-{self._safe_name(self.nameEdit.text())}.zip"
             self.outputEdit.setText(str(path))
 
     def _pick_output(self):
@@ -485,31 +485,31 @@ class AgentView(ScrollArea):
         config_json = json.dumps(agent_config, ensure_ascii=False, indent=2)
         hub_json = json.dumps(hub_config, ensure_ascii=False, indent=2)
 
-        with tempfile.TemporaryDirectory(prefix="netpulse-cert-") as temp:
+        with tempfile.TemporaryDirectory(prefix="flowbench-cert-") as temp:
             cert_path, key_path = self._generate_certificate(temp, public_host)
             cert_pem = cert_path.read_bytes()
             key_pem = key_path.read_bytes()
 
             windows_hub = """@echo off
 cd /d "%~dp0"
-NetPulse-Hub.exe --config hub.json --host 0.0.0.0 --port __NETPULSE_PORT__ --certfile cert.pem --keyfile key.pem
-""".replace("__NETPULSE_PORT__", str(public_port)).replace("\n", "\r\n")
+FlowBench-Hub.exe --config hub.json --host 0.0.0.0 --port __FLOWBENCH_PORT__ --certfile cert.pem --keyfile key.pem
+""".replace("__FLOWBENCH_PORT__", str(public_port)).replace("\n", "\r\n")
             windows_agent = """@echo off
 cd /d "%~dp0"
-NetPulse-Agent.exe --config agent.json
+FlowBench-Agent.exe --config agent.json
 """.replace("\n", "\r\n")
             windows_all = r"""@echo off
 cd /d "%~dp0"
-start "NetPulse Hub" cmd /c hub\start-hub.cmd
+start "FlowBench Hub" cmd /c hub\start-hub.cmd
 timeout /t 2 /nobreak >nul
 cd agent
-NetPulse-Agent.exe --config agent.json
+FlowBench-Agent.exe --config agent.json
 """.replace("\n", "\r\n")
             linux_hub = """#!/usr/bin/env bash
 set -e
 cd "$(dirname "$0")"
-exec python3 hub.py --config hub.json --host 0.0.0.0 --port __NETPULSE_PORT__ --certfile cert.pem --keyfile key.pem
-""".replace("__NETPULSE_PORT__", str(public_port))
+exec python3 hub.py --config hub.json --host 0.0.0.0 --port __FLOWBENCH_PORT__ --certfile cert.pem --keyfile key.pem
+""".replace("__FLOWBENCH_PORT__", str(public_port))
             linux_agent = """#!/usr/bin/env bash
 set -e
 cd "$(dirname "$0")"
@@ -522,27 +522,27 @@ if [ "${SKIP_PIP:-0}" != "1" ]; then
     python3 -m pip install --user -r agent/requirements.txt
 fi
 export PYTHONUNBUFFERED=1
-python3 hub/hub.py --config hub/hub.json --host 0.0.0.0 --port __NETPULSE_PORT__ --certfile hub/cert.pem --keyfile hub/key.pem --wait-ready 1 &
+python3 hub/hub.py --config hub/hub.json --host 0.0.0.0 --port __FLOWBENCH_PORT__ --certfile hub/cert.pem --keyfile hub/key.pem --wait-ready 1 &
 hub_pid=$!
 trap 'kill "$hub_pid" 2>/dev/null || true' EXIT INT TERM
 for i in $(seq 1 30); do
-    if curl -ksSf "https://127.0.0.1:__NETPULSE_PORT__/health" >/dev/null 2>&1; then
+    if curl -ksSf "https://127.0.0.1:__FLOWBENCH_PORT__/health" >/dev/null 2>&1; then
         break
     fi
     if ! kill -0 "$hub_pid" 2>/dev/null; then
-        echo "NetPulse Hub exited during startup" >&2
+        echo "FlowBench Hub exited during startup" >&2
         exit 1
     fi
     sleep 0.5
 done
-if ! curl -ksSf "https://127.0.0.1:__NETPULSE_PORT__/health" >/dev/null 2>&1; then
-    echo "NetPulse Hub did not become ready" >&2
+if ! curl -ksSf "https://127.0.0.1:__FLOWBENCH_PORT__/health" >/dev/null 2>&1; then
+    echo "FlowBench Hub did not become ready" >&2
     kill "$hub_pid" 2>/dev/null || true
     exit 1
 fi
-echo "NetPulse Hub ready"
+echo "FlowBench Hub ready"
 exec python3 agent/server_agent.py --config agent/agent.json
-""".replace("__NETPULSE_PORT__", str(public_port))
+""".replace("__FLOWBENCH_PORT__", str(public_port))
 
             def executable_info(content):
                 info = zipfile.ZipInfo(content[0])
@@ -552,12 +552,12 @@ exec python3 agent/server_agent.py --config agent/agent.json
 
             with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as bundle:
                 # Windows all-in-one deployment
-                bundle.write(hub_exe, "windows/hub/NetPulse-Hub.exe")
+                bundle.write(hub_exe, "windows/hub/FlowBench-Hub.exe")
                 bundle.writestr("windows/hub/hub.json", hub_json)
                 bundle.writestr("windows/hub/cert.pem", cert_pem)
                 bundle.writestr("windows/hub/key.pem", key_pem)
                 bundle.writestr("windows/hub/start-hub.cmd", windows_hub)
-                bundle.write(agent_exe, "windows/agent/NetPulse-Agent.exe")
+                bundle.write(agent_exe, "windows/agent/FlowBench-Agent.exe")
                 bundle.writestr("windows/agent/agent.json", config_json)
                 bundle.writestr("windows/agent/ca.pem", cert_pem)
                 bundle.writestr("windows/agent/start-agent.cmd", windows_agent)
@@ -582,7 +582,7 @@ exec python3 agent/server_agent.py --config agent/agent.json
                     bundle.writestr(*executable_info(script))
 
                 instructions = L(
-                    f"NetPulse 一体化服务器节点\n\n"
+                    f"FlowBench 一体化服务器节点\n\n"
                     f"控制地址：{public_url}\n\n"
                     "Windows：解压后进入 windows，右键以管理员运行 start-all.cmd，并允许防火墙端口 8787。\n"
                     "Linux 脚本会等待 Hub 健康检查通过后再启动 Agent。\n"
@@ -591,7 +591,7 @@ exec python3 agent/server_agent.py --config agent/agent.json
                     "本地会同时生成 .ca.pem 证书文件；不要删除它，GUI 需要它连接控制端。\n"
                     "这个包使用随机自签名证书，仅用于你自己的服务器控制面。\n"
                     "只对你拥有或取得书面授权的目标执行测试。",
-                    f"NetPulse all-in-one server node\n\n"
+                    f"FlowBench all-in-one server node\n\n"
                     f"Control URL: {public_url}\n\n"
                     "Windows: extract, open windows, run start-all.cmd as administrator, and allow TCP 8787.\n"
                     "Linux: extract, open linux, run chmod +x start-all.sh && ./start-all.sh, and open TCP 8787. The script waits for the Hub health check before starting the Agent.\n"
@@ -641,22 +641,22 @@ exec python3 agent/server_agent.py --config agent/agent.json
             "job_heartbeat_interval": 2,
         }
         instructions = L(
-            "NetPulse 服务器节点\n\n"
-            "1. Windows：进入 windows 文件夹，把 agent.json 与 NetPulse-Agent.exe 放在同一目录，双击 start-agent.cmd。\n"
+            "FlowBench 服务器节点\n\n"
+            "1. Windows：进入 windows 文件夹，把 agent.json 与 FlowBench-Agent.exe 放在同一目录，双击 start-agent.cmd。\n"
             "2. Linux：进入 linux 文件夹，安装 requests 后运行 ./start-agent.sh。\n"
             "3. 节点上线后，在本地压力测试页填写配置，再回到服务器节点页点击启动。\n"
             "4. 只对你拥有或取得书面授权的目标执行测试。",
-            "NetPulse server node\n\n"
-            "1. Windows: open the windows folder, keep agent.json beside NetPulse-Agent.exe, then run start-agent.cmd.\n"
+            "FlowBench server node\n\n"
+            "1. Windows: open the windows folder, keep agent.json beside FlowBench-Agent.exe, then run start-agent.cmd.\n"
             "2. Linux: open the linux folder, install requests, then run ./start-agent.sh.\n"
             "3. After the node is online, configure the Stress Test page locally and click Start on server.\n"
             "4. Use only targets you own or are authorized to test.")
-        start_cmd = '@echo off\ncd /d "%~dp0"\nNetPulse-Agent.exe --config agent.json\n'
+        start_cmd = '@echo off\ncd /d "%~dp0"\nFlowBench-Agent.exe --config agent.json\n'
         start_sh = '#!/usr/bin/env bash\nset -e\ncd "$(dirname "$0")"\nexec python3 server_agent.py --config agent.json\n'
         config_json = json.dumps(agent_config, ensure_ascii=False, indent=2)
         with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as bundle:
             if exe.is_file():
-                bundle.write(exe, "windows/NetPulse-Agent.exe")
+                bundle.write(exe, "windows/FlowBench-Agent.exe")
                 bundle.writestr("windows/agent.json", config_json)
                 bundle.writestr("windows/start-agent.cmd", start_cmd)
             linux_payloads = [
@@ -683,9 +683,9 @@ exec python3 agent/server_agent.py --config agent/agent.json
         resource = cls._resource_root()
         project = Path(__file__).resolve().parents[2]
         candidates = [
-            resource / "agent_template" / "hub" / "NetPulse-Hub.exe",
-            project / "dist" / "NetPulse-Hub.exe",
-            project / "NetPulse-Hub.exe",
+            resource / "agent_template" / "hub" / "FlowBench-Hub.exe",
+            project / "dist" / "FlowBench-Hub.exe",
+            project / "FlowBench-Hub.exe",
         ]
         return next((path for path in candidates if path.is_file()), candidates[0])
 
@@ -701,9 +701,9 @@ exec python3 agent/server_agent.py --config agent/agent.json
         resource = cls._resource_root()
         project = Path(__file__).resolve().parents[2]
         exe_candidates = [
-            resource / "agent_template" / "windows" / "NetPulse-Agent.exe",
-            project / "dist" / "NetPulse-Agent.exe",
-            project / "NetPulse-Agent.exe",
+            resource / "agent_template" / "windows" / "FlowBench-Agent.exe",
+            project / "dist" / "FlowBench-Agent.exe",
+            project / "FlowBench-Agent.exe",
         ]
         linux_candidates = [
             resource / "agent_template" / "linux",

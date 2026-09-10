@@ -1,4 +1,4 @@
-"""Shared protocol helpers for the NetPulse server-agent control plane."""
+"""Shared protocol helpers for the FlowBench server-agent control plane."""
 from __future__ import annotations
 
 import json

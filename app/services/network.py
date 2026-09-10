@@ -49,10 +49,10 @@ def add_firewall_rule(port: int = PORT) -> bool:
     try:
         flags = 0x08000000  # CREATE_NO_WINDOW
         subprocess.run(
-            ["netsh", "advfirewall", "firewall", "delete", "rule", "name=NetPulse Collab"],
+            ["netsh", "advfirewall", "firewall", "delete", "rule", "name=FlowBench Collab"],
             capture_output=True, creationflags=flags)
         r = subprocess.run(
-            ["netsh", "advfirewall", "firewall", "add", "rule", "name=NetPulse Collab",
+            ["netsh", "advfirewall", "firewall", "add", "rule", "name=FlowBench Collab",
              "dir=in", "action=allow", "protocol=TCP", f"localport={port}"],
             capture_output=True, text=True, creationflags=flags)
         return r.returncode == 0
@@ -74,7 +74,7 @@ def upnp_map(port: int = PORT):
             u.deleteportmapping(port, "TCP")
         except Exception:
             pass
-        u.addportmapping(port, "TCP", u.lanaddr, port, "NetPulse Collab", "")
+        u.addportmapping(port, "TCP", u.lanaddr, port, "FlowBench Collab", "")
         return True, external
     except Exception as e:
         return False, str(e)

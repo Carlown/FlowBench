@@ -6,7 +6,7 @@ from PySide6.QtCore import QObject, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 
 APP_VERSION = "1.2.2"
-REPO = "Carlown/NetPulse"
+REPO = "Carlown/FlowBench"
 RELEASES_URL = f"https://github.com/{REPO}/releases"
 LATEST_URL = f"https://github.com/{REPO}/releases/latest"
 _API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"

@@ -308,7 +308,7 @@ class MonitorView(ScrollArea):
                 parent=self.window(),
             )
             return
-        default_name = "netpulse-monitor-" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".csv"
+        default_name = "flowbench-monitor-" + datetime.now().strftime("%Y%m%d-%H%M%S") + ".csv"
         path, _ = QFileDialog.getSaveFileName(
             self, L("导出监控数据", "Export monitoring data"), default_name,
             L("CSV 文件 (*.csv)", "CSV files (*.csv)"),

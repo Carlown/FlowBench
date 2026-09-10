@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""NetPulse 幸运转盘插件：转一转，把选择交给运气。
+"""FlowBench 幸运转盘插件：转一转，把选择交给运气。
 
 内置 8 个趣味选项，可在「编辑选项」中改成自己的内容（每行一个，2-16 条）。
 点击转盘中央的 GO 或「开始」按钮即可开转，结果实时显示并记录。
@@ -163,10 +163,10 @@ class _Wheel(QWidget):
         ]))
 
 
-class Plugin(NetPulsePlugin):
+class Plugin(FlowBenchPlugin):
     name = ("幸运转盘", "Lucky Wheel")
     version = "1.0"
-    author = "NetPulse"
+    author = "FlowBench"
     description = ("转一转，随机帮你做决定：内置趣味选项，支持自定义，一键开转。",
                    "Let luck decide: fun preset options, fully customizable, one click to spin.")
     icon = "lucky_wheel.png"   # 图片路径（相对本插件文件）

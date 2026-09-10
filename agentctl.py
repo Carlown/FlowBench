@@ -1,4 +1,4 @@
-"""Operator CLI for the authenticated NetPulse agent hub."""
+"""Operator CLI for the authenticated FlowBench agent hub."""
 from __future__ import annotations
 
 import argparse
@@ -40,7 +40,7 @@ def load(path):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="NetPulse agent operator CLI")
+    parser = argparse.ArgumentParser(description="FlowBench agent operator CLI")
     parser.add_argument("--config", default="controller.json")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("list")

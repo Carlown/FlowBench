@@ -1,0 +1,21 @@
+[Unit]
+Description=FlowBench Server Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=flowbench
+Group=flowbench
+WorkingDirectory=/opt/flowbench-agent
+ExecStart=/opt/flowbench-agent/venv/bin/python /opt/flowbench-agent/server_agent.py --config /etc/flowbench/agent.json
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/flowbench-agent
+
+[Install]
+WantedBy=multi-user.target

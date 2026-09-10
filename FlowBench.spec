@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# NetPulse 打包配置（onedir 模式，供 Inno Setup 打安装包）：
+# FlowBench 打包配置（onedir 模式，供 Inno Setup 打安装包）：
 import os
 
 # 排除环境中无关的可编辑安装包（phantom_backend 等），
@@ -13,8 +13,8 @@ a = Analysis(
         ('app.ico', '.'),
         ('app_logo.png', '.'),
         # Server-agent payload used by the Generate server node button.
-        ('dist/NetPulse-Agent.exe', 'agent_template/windows'),
-        ('dist/NetPulse-Hub.exe', 'agent_template/hub'),
+        ('dist/FlowBench-Agent.exe', 'agent_template/windows'),
+        ('dist/FlowBench-Hub.exe', 'agent_template/hub'),
         ('server_agent.py', 'agent_template/linux'),
         ('agent/hub.py', 'agent_template/linux/agent'),
         ('agent/worker.py', 'agent_template/linux/agent'),
@@ -50,7 +50,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='NetPulse',
+    name='FlowBench',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -71,5 +71,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name='NetPulse',
+    name='FlowBench',
 )

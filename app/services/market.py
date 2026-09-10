@@ -24,12 +24,12 @@ from app.services.updater import _ver_tuple
 
 INDEX_SOURCES = [
     # GitHub Contents API：内容实时（无 CDN 缓存延迟），匿名限额 60 次/小时，够日常刷新
-    ("https://api.github.com/repos/Carlown/NetPulse/contents/marketplace/plugins-index.json?ref=master", "api"),
+    ("https://api.github.com/repos/Carlown/FlowBench/contents/marketplace/plugins-index.json?ref=master", "api"),
     # raw 直链兜底（可能有几分钟 CDN 延迟，但无限额）
-    ("https://raw.githubusercontent.com/Carlown/NetPulse/master/marketplace/plugins-index.json", "raw"),
+    ("https://raw.githubusercontent.com/Carlown/FlowBench/master/marketplace/plugins-index.json", "raw"),
 ]
 # 索引在线编辑入口（发布插件用）
-INDEX_EDIT_URL = "https://github.com/Carlown/NetPulse/edit/master/marketplace/plugins-index.json"
+INDEX_EDIT_URL = "https://github.com/Carlown/FlowBench/edit/master/marketplace/plugins-index.json"
 
 # 浏览器一键授权（Device Flow）用的 OAuth App Client ID。
 # 项目维护者在 GitHub → Settings → Developer settings → OAuth Apps 注册一次，
@@ -90,7 +90,7 @@ def is_valid_market_plugin_id(value) -> bool:
 
 def _fetch_index_raw(url: str, kind: str):
     """拉取并解析索引，返回 dict；失败抛异常。kind: api | raw。"""
-    headers = {"User-Agent": "NetPulse", "Cache-Control": "no-cache"}
+    headers = {"User-Agent": "FlowBench", "Cache-Control": "no-cache"}
     settings_obj = None
     token = ""
     # Authenticated API requests avoid GitHub's low anonymous rate limit when
@@ -225,7 +225,7 @@ class MarketClient(QObject):
         if f.startswith("http://") or f.startswith("https://"):
             url = f
         else:
-            url = ("https://raw.githubusercontent.com/Carlown/NetPulse"
+            url = ("https://raw.githubusercontent.com/Carlown/FlowBench"
                    f"/master/marketplace/{f}")
         try:
             with requests.get(url, timeout=_TIMEOUT, stream=True) as r:
@@ -254,7 +254,7 @@ class MarketClient(QObject):
         # 写入临时文件交给主线程导入
         try:
             name = f"{pid}.py"
-            tmp = os.path.join(tempfile.mkdtemp(prefix="netpulse_market_"), name)
+            tmp = os.path.join(tempfile.mkdtemp(prefix="flowbench_market_"), name)
             with open(tmp, "wb") as fh:
                 fh.write(content)
         except Exception as e:

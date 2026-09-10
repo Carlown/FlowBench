@@ -529,8 +529,8 @@ class CollabView(ScrollArea):
         if not isinstance(headers, dict):
             InfoBar.warning(
                 L("请求头格式错误", "Invalid headers"),
-                L("请求头必须是 JSON 对象，例如 {\"User-Agent\": \"NetPulse\"}",
-                  "Headers must be a JSON object, for example {\"User-Agent\": \"NetPulse\"}"),
+                L("请求头必须是 JSON 对象，例如 {\"User-Agent\": \"FlowBench\"}",
+                  "Headers must be a JSON object, for example {\"User-Agent\": \"FlowBench\"}"),
                 parent=self.window())
             return
         config = {

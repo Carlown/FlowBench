@@ -174,7 +174,7 @@ class DashboardView(ScrollArea):
         # 标题区
         title_row = QHBoxLayout()
         tcol = QVBoxLayout()
-        self.titleLabel = TitleLabel("NetPulse", self.view)
+        self.titleLabel = TitleLabel("FlowBench", self.view)
         self.subLabel = CaptionLabel(
             L("合法授权网络压力测试与性能监控工具", "Authorized Network Stress Testing & Performance Monitoring"), self.view)
         tcol.addWidget(self.titleLabel)

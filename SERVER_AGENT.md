@@ -1,21 +1,21 @@
-# NetPulse Server Agent
+# FlowBench Server Agent
 
-This is a **new server node deployment method** that does not modify the existing desktop GUI. The server runs `server_agent.py` (or the packaged `NetPulse-Agent.exe`), which connects to the Hub via outbound HTTPS polling; local operators use `agentctl.py` to send start/stop commands to a specified node.
+This is a **new server node deployment method** that does not modify the existing desktop GUI. The server runs `server_agent.py` (or the packaged `FlowBench-Agent.exe`), which connects to the Hub via outbound HTTPS polling; local operators use `agentctl.py` to send start/stop commands to a specified node.
 
 ```text
 Local Operator / Console
         │ HTTPS (control commands, status)
         ▼
-NetPulse Hub (self-hosted)
+FlowBench Hub (self-hosted)
         ▲
         │ Outbound HTTPS (server does not need inbound ports open)
         │
-NetPulse-Agent.exe (your server) ───► Authorized test targets
+FlowBench-Agent.exe (your server) ───► Authorized test targets
 ```
 
 ## Why this approach
 
-- The existing `NetPulse.exe`, GUI, stress-test page, and collaboration page remain fully intact.
+- The existing `FlowBench.exe`, GUI, stress-test page, and collaboration page remain fully intact.
 - The Agent is an independent process; copy it to the server and run it, no need to move the desktop GUI to the server.
 - The server actively establishes a connection to the Hub, no need to open management ports on the server.
 - The Agent's target whitelist, protocols, rate, duration, thread count, and packet size are all capped by local configuration on the server.
@@ -33,8 +33,8 @@ If you have not yet deployed a Hub, leave the "Hub address" and "control token" 
 
 The GUI will automatically generate:
 
-- `NetPulse-Hub`
-- `NetPulse-Agent`
+- `FlowBench-Hub`
+- `FlowBench-Agent`
 - A random control token
 - A random node token
 - A random self‑signed HTTPS certificate
@@ -44,13 +44,13 @@ The GUI will automatically generate:
 
 After extracting on a Windows server, go to the `windows` folder, run `start-all.cmd` as Administrator, and allow TCP `8787`. On a Linux server, extract, go to the `linux` folder, run `./start-all.sh`, and allow TCP `8787`. After startup, return to the GUI and click "Refresh Nodes".
 
-When generating the ZIP, a file `NetPulse-<node name>.ca.pem` is also created next to it. This file is used by the GUI to trust the one‑click Hub certificate; do not delete or rename it.
+When generating the ZIP, a file `FlowBench-<node name>.ca.pem` is also created next to it. This file is used by the GUI to trust the one‑click Hub certificate; do not delete or rename it.
 
 ## 0. Generate the node package using the GUI (recommended)
 
-Prerequisite: first deploy and start `NetPulse-Hub`, and the local GUI must be able to access its HTTPS address.
+Prerequisite: first deploy and start `FlowBench-Hub`, and the local GUI must be able to access its HTTPS address.
 
-1. In the local NetPulse "Server Nodes" page, fill in the Hub address and control token.
+1. In the local FlowBench "Server Nodes" page, fill in the Hub address and control token.
 2. Click "Generate Server Node".
 3. Enter a node name and save the ZIP.
 4. Copy the ZIP to the server and extract:
@@ -155,14 +155,14 @@ On the development machine, run:
 .\build_agent.ps1
 ```
 
-The output is `dist\NetPulse-Agent.exe`. The Agent is a cross‑platform pure‑Python network process that does not depend on Qt or a desktop environment; for Windows, copy the exe directly; for Linux, use the same `server_agent.py` (or repackage with PyInstaller on Linux) and `agent.json`. `hub.py` and `agentctl.py` are also built as standalone exes; see `Agent.spec`, `Hub.spec`, and `AgentCtl.spec`.
+The output is `dist\FlowBench-Agent.exe`. The Agent is a cross‑platform pure‑Python network process that does not depend on Qt or a desktop environment; for Windows, copy the exe directly; for Linux, use the same `server_agent.py` (or repackage with PyInstaller on Linux) and `agent.json`. `hub.py` and `agentctl.py` are also built as standalone exes; see `Agent.spec`, `Hub.spec`, and `AgentCtl.spec`.
 
 ## 6. Autostart on server boot
 
 On Windows Server, use Task Scheduler:
 
 - Trigger: At system startup
-- Action: `NetPulse-Agent.exe --config C:\NetPulse\agent.json`
+- Action: `FlowBench-Agent.exe --config C:\FlowBench\agent.json`
 - Check "Run whether user is logged on or not"
 - Restart on failure every 1 minute
 - Run under a dedicated low‑privilege account
@@ -186,8 +186,8 @@ Build an extracted bundle:
 
 ```bash
 cp deploy/docker/Dockerfile /path/to/extracted/linux/
-docker build -t netpulse-node /path/to/extracted/linux/
-docker run --rm -p 8787:8787 netpulse-node
+docker build -t flowbench-node /path/to/extracted/linux/
+docker run --rm -p 8787:8787 flowbench-node
 ```
 
 The Hub listens on `0.0.0.0:8787`.

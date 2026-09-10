@@ -1,4 +1,4 @@
-"""应用设置（JSON 持久化到 %APPDATA%/NetPulse）。"""
+"""应用设置（JSON 持久化到 %APPDATA%/FlowBench）。"""
 import copy
 import json
 import os
@@ -8,7 +8,7 @@ import time
 
 
 class AppSettings:
-    BACKUP_SCHEMA = "netpulse.settings.backup"
+    BACKUP_SCHEMA = "flowbench.settings.backup"
     BACKUP_SCHEMA_VERSION = 1
 
     # 仅这些非敏感偏好可以进入可分享的设置备份。授权目标、上次压测目标、
@@ -67,9 +67,9 @@ class AppSettings:
 
     def __init__(self):
         root = os.environ.get("APPDATA", os.path.expanduser("~"))
-        base = os.path.join(root, "NetPulse")
-        old = os.path.join(root, "NetPulsePy", "settings.json")
-        # 一次性迁移：旧版（NetPulsePy）配置复制到新目录
+        base = os.path.join(root, "FlowBench")
+        old = os.path.join(root, "FlowBenchPy", "settings.json")
+        # 一次性迁移：旧版（FlowBenchPy）配置复制到新目录
         if not os.path.exists(os.path.join(base, "settings.json")) and os.path.exists(old):
             try:
                 with open(old, "r", encoding="utf-8") as f:

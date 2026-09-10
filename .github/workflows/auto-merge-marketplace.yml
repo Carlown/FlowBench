@@ -1,6 +1,6 @@
 name: Marketplace PRs require manual review
 
-# This intentionally preserves the legacy filename. Older NetPulse clients
+# This intentionally preserves the legacy filename. Older FlowBench clients
 # only check that the file exists before publishing; it must not auto-merge.
 on:
   pull_request_target:

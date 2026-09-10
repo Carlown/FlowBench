@@ -1,10 +1,10 @@
-"""NetPulse — 合法授权网络压力测试与性能监控工具（Python/Fluent 版）。"""
+"""FlowBench — 合法授权网络压力测试与性能监控工具（Python/Fluent 版）。"""
 import os
 import sys
 
 # 崩溃诊断：C 层闪退（如 paho-mqtt 线程崩溃、Qt 访问违例）时把所有线程堆栈写入 crash.log
 import faulthandler
-_crash_log_dir = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "NetPulse", "logs")
+_crash_log_dir = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "FlowBench", "logs")
 os.makedirs(_crash_log_dir, exist_ok=True)
 _crash_log_file = open(os.path.join(_crash_log_dir, "crash.log"), "a", encoding="utf-8")
 faulthandler.enable(_crash_log_file)
@@ -31,8 +31,8 @@ from PySide6.QtCore import QLocale, QTimer, QSize
 from PySide6.QtWidgets import QApplication
 from app.ui.splash import create_splash
 
-SINGLE_INSTANCE_KEY = "NetPulse_SingleInstance_Key"
-APP_USER_MODEL_ID = "NetPulse.App"
+SINGLE_INSTANCE_KEY = "FlowBench_SingleInstance_Key"
+APP_USER_MODEL_ID = "FlowBench.App"
 
 
 def _set_app_user_model_id(app_id: str = APP_USER_MODEL_ID) -> None:
@@ -72,9 +72,9 @@ def main():
 
     # ① 第一时间创建 QApplication 并显示启动画面
     app = QApplication(sys.argv)
-    app.setApplicationName("NetPulse")
-    app.setApplicationDisplayName("NetPulse")
-    app.setOrganizationName("NetPulse")
+    app.setApplicationName("FlowBench")
+    app.setApplicationDisplayName("FlowBench")
+    app.setOrganizationName("FlowBench")
     splash = create_splash()  # 这是双击后用户看到的第一样东西
 
     # ② 再做单实例检测（splash 已经在屏幕上了）
@@ -105,7 +105,7 @@ def main():
     setTheme(Theme.DARK if settings.theme == "dark" else Theme.LIGHT)
     # qfluentwidgets 的 pip 版本使用 Qt Translator，而不是旧版的
     # setLanguage/Language API。安装对应翻译器后，导航按钮、菜单等
-    # 组件自带文案才能真正跟随 NetPulse 的语言设置。
+    # 组件自带文案才能真正跟随 FlowBench 的语言设置。
     from qfluentwidgets import FluentTranslator
     fluent_locale = QLocale("en_US" if current_lang() == "en-US" else "zh_CN")
     fluent_translator = FluentTranslator(fluent_locale, app)
@@ -195,7 +195,7 @@ def main():
     from app.services.monitor import monitor
     from app.services.logger import log
     monitor.start()
-    log.info(L("NetPulse 启动。", "NetPulse started."))
+    log.info(L("FlowBench 启动。", "FlowBench started."))
 
     # 启动 3 秒后静默检查更新
     def _auto_update_check():

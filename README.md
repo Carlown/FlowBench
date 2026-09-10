@@ -1,8 +1,8 @@
 <div align="center">
-<img src="./LargeLogo.png" alt="NetPulse Logo" width="546" height="184">
+<img src="./LargeLogo.png" alt="FlowBench Logo" width="546" height="184">
 </div>
 
-# NetPulse
+# FlowBench
 
 **Legally-Authorized Network Stress Testing & Performance Monitoring Tool**
 
@@ -16,7 +16,7 @@
 
 ### Introduction
 
-NetPulse is a Windows desktop application for network stress testing and performance monitoring, built with **Python + PySide6 + QFluentWidgets** following the **Windows 11 Fluent Design** language. A **legal-compliance framework** is built in: every test target must pass an authorization confirmation first, rate and concurrency are capped by a token bucket, and all operations are written to an audit log.
+FlowBench is a Windows desktop application for network stress testing and performance monitoring, built with **Python + PySide6 + QFluentWidgets** following the **Windows 11 Fluent Design** language. A **legal-compliance framework** is built in: every test target must pass an authorization confirmation first, rate and concurrency are capped by a token bucket, and all operations are written to an audit log.
 
 > ⚠️ **Disclaimer**: This tool is for learning, research, and performance testing **with written authorization only**. Stress-testing unauthorized targets is illegal; the user bears full legal responsibility.
 
@@ -41,7 +41,7 @@ NetPulse is a Windows desktop application for network stress testing and perform
 
 ### Plugin System (New in v1.1.0)
 
-NetPulse v1.1.0 ships with a full plugin platform — extend the app with your own features:
+FlowBench v1.1.0 ships with a full plugin platform — extend the app with your own features:
 
 - **Plugin Marketplace**: browse, search, install and update community plugins with one click (integrity-verified via SHA-256)
 - **Local Plugin Management**: enable / disable / reload / remove plugins instantly; metadata and icons stay visible when disabled
@@ -55,16 +55,16 @@ Check the built-in `example_hello.py` / `example_dns.py` plugins in the plugin f
 
 ### Install (End Users)
 
-1. Go to the [**Releases**](https://github.com/Carlown/NetPulse/releases/latest) page
-2. Download the latest `NetPulse-Setup-x.x.x.exe`
+1. Go to the [**Releases**](https://github.com/Carlown/FlowBench/releases/latest) page
+2. Download the latest `FlowBench-Setup-x.x.x.exe`
 3. Run the installer and follow the wizard (desktop shortcut optional)
 4. Launch from the Start menu or desktop
 
 ### Run from Source (Developers)
 
 ```bash
-git clone https://github.com/Carlown/NetPulse.git
-cd NetPulsePy
+git clone https://github.com/Carlown/FlowBench.git
+cd FlowBenchPy
 pip install -r requirements.txt
 python main.py
 ```
@@ -73,11 +73,11 @@ python main.py
 
 ```bash
 # 1. Build single-file exe
-pyinstaller --name NetPulse --icon app.ico --windowed --onefile --add-data "app.ico;." main.py
+pyinstaller --name FlowBench --icon app.ico --windowed --onefile --add-data "app.ico;." main.py
 
 # 2. Create the installer (requires Inno Setup 7)
 ISCC.exe installer.iss
-# Output: installer/NetPulse-Setup-1.2.2.exe
+# Output: installer/FlowBench-Setup-1.2.2.exe
 ```
 
 ### Tech Stack
@@ -87,7 +87,7 @@ ISCC.exe installer.iss
 - **System monitoring**: psutil
 - **Networking**: requests / socket / icmplib
 - **Rate limiting**: custom token-bucket algorithm
-- **Storage**: JSON (`%APPDATA%\NetPulse`)
+- **Storage**: JSON (`%APPDATA%\FlowBench`)
 - **Packaging**: PyInstaller + Inno Setup 7
 
 ---
@@ -96,7 +96,7 @@ ISCC.exe installer.iss
 
 ### 简介
 
-NetPulse 是一款 Windows 桌面端的网络压力测试与性能监控工具，基于 **Python + PySide6 + QFluentWidgets** 构建，采用 **Windows 11 Fluent Design** 设计语言。工具内置**法律合规框架**：所有测试目标必须先通过授权确认，速率与并发受令牌桶限速保护，全部操作写入审计日志。
+FlowBench 是一款 Windows 桌面端的网络压力测试与性能监控工具，基于 **Python + PySide6 + QFluentWidgets** 构建，采用 **Windows 11 Fluent Design** 设计语言。工具内置**法律合规框架**：所有测试目标必须先通过授权确认，速率与并发受令牌桶限速保护，全部操作写入审计日志。
 
 > ⚠️ **免责声明**：本工具仅供学习研究与获得书面授权的性能测试使用。对未授权目标发起压力测试属于违法行为，使用者需自行承担全部法律责任。
 
@@ -121,7 +121,7 @@ NetPulse 是一款 Windows 桌面端的网络压力测试与性能监控工具�
 
 ### 插件系统（v1.1.0 新增）
 
-NetPulse v1.1.0 内置完整插件平台，可以自由扩展功能：
+FlowBench v1.1.0 内置完整插件平台，可以自由扩展功能：
 
 - **插件市场**：浏览、搜索、一键安装和更新社区插件（SHA-256 完整性校验）
 - **本地插件管理**：即时启用 / 禁用 / 重载 / 删除插件；禁用后图标和元数据保持显示
@@ -135,16 +135,16 @@ NetPulse v1.1.0 内置完整插件平台，可以自由扩展功能：
 
 ### 安装（普通用户）
 
-1. 进入 [**Releases**](https://github.com/Carlown/NetPulse/releases/latest) 发布页
-2. 下载最新的 `NetPulse-Setup-x.x.x.exe`
+1. 进入 [**Releases**](https://github.com/Carlown/FlowBench/releases/latest) 发布页
+2. 下载最新的 `FlowBench-Setup-x.x.x.exe`
 3. 双击运行，按向导完成安装（可勾选桌面快捷方式）
 4. 安装后从开始菜单或桌面启动
 
 ### 从源码运行（开发者）
 
 ```bash
-git clone https://github.com/Carlown/NetPulse.git
-cd NetPulsePy
+git clone https://github.com/Carlown/FlowBench.git
+cd FlowBenchPy
 pip install -r requirements.txt
 python main.py
 ```
@@ -153,11 +153,11 @@ python main.py
 
 ```bash
 # 1. 生成单文件 exe
-pyinstaller --name NetPulse --icon app.ico --windowed --onefile --add-data "app.ico;." main.py
+pyinstaller --name FlowBench --icon app.ico --windowed --onefile --add-data "app.ico;." main.py
 
 # 2. 制作安装程序（需安装 Inno Setup 7）
 ISCC.exe installer.iss
-# 产物位于 installer/NetPulse-Setup-1.2.2.exe
+# 产物位于 installer/FlowBench-Setup-1.2.2.exe
 ```
 
 ### 技术栈
@@ -167,7 +167,7 @@ ISCC.exe installer.iss
 - **系统监控**：psutil
 - **网络**：requests / socket / icmplib
 - **限速**：自研令牌桶算法
-- **存储**：JSON（`%APPDATA%\NetPulse`）
+- **存储**：JSON（`%APPDATA%\FlowBench`）
 - **打包**：PyInstaller + Inno Setup 7
 
 ---

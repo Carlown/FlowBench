@@ -45,7 +45,7 @@ def _get_icon_path():
 class MainWindow(FluentWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("NetPulse")
+        self.setWindowTitle("FlowBench")
         self._default_size = QSize(1240, 800)
         self._minimum_size = QSize(1000, 680)
         self.resize(self._default_size)
@@ -169,7 +169,7 @@ class MainWindow(FluentWindow):
             self.tray_icon.setIcon(QIcon(icon_path))
         else:
             self.tray_icon.setIcon(self.windowIcon())
-        self.tray_icon.setToolTip("NetPulse")
+        self.tray_icon.setToolTip("FlowBench")
 
         # 使用 RoundMenu 自动适配深色/浅色主题。
         # 不走 setContextMenu：Qt 原生定位在托盘靠近任务栏/屏幕边缘时会把
@@ -299,7 +299,7 @@ class MainWindow(FluentWindow):
         if not self.tray_icon.isVisible() or not QSystemTrayIcon.supportsMessages():
             return
         self.tray_icon.showMessage(
-            "NetPulse",
+            "FlowBench",
             L("程序已最小化到托盘，右键托盘图标可退出",
               "Minimized to tray, right-click tray icon to quit"),
             QSystemTrayIcon.Information,
