@@ -114,12 +114,12 @@
         "Example plugin demonstrating the plugin API; disable or remove it in Settings → Plugins"
       ],
       "category": "ui",
-      "date": "2026-09-08",
+      "date": "2026-09-11",
       "file": "example_hello.py",
       "sha256": "9bbb148c7973892c6732d192ee72e17cc35835009a54b482d936d4bb637f503a",
       "min_app": "1.0.7",
       "homepage": "https://github.com/Carlown/FlowBench",
-      "publisher": "cvbuiop"
+      "publisher": "Carlown"
     }
   ]
 }
