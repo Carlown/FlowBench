@@ -1,6 +1,7 @@
 """审计日志：文件落盘 + 内存缓冲（供导出）。"""
 import logging
 import os
+import tempfile
 import threading
 import time
 from collections import deque
@@ -11,7 +12,11 @@ from app.services.settings import settings
 class AuditLog:
     def __init__(self):
         base = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "FlowBench", "logs")
-        os.makedirs(base, exist_ok=True)
+        try:
+            os.makedirs(base, exist_ok=True)
+        except OSError:
+            base = os.path.join(tempfile.gettempdir(), "FlowBench", "logs")
+            os.makedirs(base, exist_ok=True)
         self.file_path = os.path.join(base, time.strftime("%Y-%m-%d") + ".log")
         self.entries = deque(maxlen=5000)
         self._lock = threading.Lock()
@@ -19,9 +24,14 @@ class AuditLog:
         self._logger = logging.getLogger("FlowBench")
         self._logger.setLevel(logging.INFO)
         if not self._logger.handlers:
-            fh = logging.FileHandler(self.file_path, encoding="utf-8")
-            fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-            self._logger.addHandler(fh)
+            try:
+                fh = logging.FileHandler(self.file_path, encoding="utf-8")
+                fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+                self._logger.addHandler(fh)
+            except OSError:
+                # Logging failure must not prevent the desktop app from
+                # starting; retain in-memory entries and use stderr.
+                self._logger.addHandler(logging.NullHandler())
 
     def _log(self, level, msg):
         self._logger.log(level, msg)

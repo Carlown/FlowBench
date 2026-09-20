@@ -1,7 +1,7 @@
 ; FlowBench Installer Script (Inno Setup 7)
 ; 中英双语安装程序
 #define MyAppName "FlowBench"
-#define MyAppVersion "1.2.2"
+#define MyAppVersion "1.2.4"
 #define MyAppPublisher "FlowBench"
 #define MyAppExeName "FlowBench.exe"
 #define MyAppDirName "FlowBench"
@@ -17,7 +17,7 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
 OutputDir=installer
-OutputBaseFilename=FlowBench-Setup-1.2.2
+OutputBaseFilename=FlowBench-Setup-{#MyAppVersion}
 SetupIconFile=app.ico
 Compression=lzma2/max
 SolidCompression=yes
@@ -71,8 +71,10 @@ begin
   UninstallString := GetOldUninstallString();
   if UninstallString <> '' then
   begin
-    PromptText := 'Detected a previous installation (NetPulse / old FlowBench). It will be uninstalled first, then FlowBench will be installed to a new folder. Continue?' + #13#10#13#10 +
-                  '检测到旧版本（NetPulse / 旧版 FlowBench）。安装程序将先卸载旧版本（包括旧目录中的 NetPulse.exe），再把 FlowBench 安装到新目录。是否继续？';
+    if ActiveLanguage = 'chinesesimplified' then
+      PromptText := '检测到旧版本（NetPulse / 旧版 FlowBench）。安装程序将先卸载旧版本（包括旧目录中的 NetPulse.exe），再把 FlowBench 安装到新目录。是否继续？'
+    else
+      PromptText := 'Detected a previous installation (NetPulse / old FlowBench). It will be uninstalled first, then FlowBench will be installed to a new folder. Continue?';
     if MsgBox(PromptText, mbConfirmation, MB_YESNO) = IDYES then
     begin
       UninstallString := RemoveQuotes(UninstallString);
@@ -80,13 +82,19 @@ begin
       begin
         if ResultCode <> 0 then
         begin
-          MsgBox('Failed to uninstall the old version. Setup will exit.' + #13#10 + '旧版本卸载失败，安装将中止。', mbError, MB_OK);
+          if ActiveLanguage = 'chinesesimplified' then
+            MsgBox('旧版本卸载失败，安装将中止。', mbError, MB_OK)
+          else
+            MsgBox('Failed to uninstall the old version. Setup will exit.', mbError, MB_OK);
           Result := False;
         end;
       end
       else
       begin
-        MsgBox('Could not run the old uninstaller. Setup will exit.' + #13#10 + '无法运行旧版本卸载程序，安装将中止。', mbError, MB_OK);
+        if ActiveLanguage = 'chinesesimplified' then
+          MsgBox('无法运行旧版本卸载程序，安装将中止。', mbError, MB_OK)
+        else
+          MsgBox('Could not run the old uninstaller. Setup will exit.', mbError, MB_OK);
         Result := False;
       end;
     end

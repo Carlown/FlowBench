@@ -151,15 +151,19 @@ class MonitorView(ScrollArea):
         self.enableTransparentBackground()
 
         root = QVBoxLayout(self.view)
-        root.setContentsMargins(36, 24, 36, 24)
-        root.setSpacing(16)
+        root.setContentsMargins(28, 22, 28, 28)
+        root.setSpacing(14)
 
         # 标题与实时曲线工具栏
-        header = QHBoxLayout()
+        header = QVBoxLayout()
         header.setSpacing(8)
-        header.addWidget(SubtitleLabel(L("监控面板", "Monitor"), self.view))
-        header.addStretch(1)
-        header.addWidget(CaptionLabel(L("时间窗", "Window"), self.view))
+        title_row = QHBoxLayout()
+        title_row.addWidget(SubtitleLabel(L("监控面板", "Monitor"), self.view))
+        title_row.addStretch(1)
+        header.addLayout(title_row)
+        action_row = QHBoxLayout()
+        action_row.setSpacing(8)
+        action_row.addWidget(CaptionLabel(L("时间窗", "Window"), self.view))
         self.windowCombo = ComboBox(self.view)
         self.windowCombo.addItems([
             L("1 分钟", "1 min"), L("5 分钟", "5 min"), L("15 分钟", "15 min")
@@ -167,26 +171,33 @@ class MonitorView(ScrollArea):
         self.windowCombo.setCurrentIndex(0)
         self.windowCombo.setMinimumWidth(92)
         self.windowCombo.currentIndexChanged.connect(self._on_window_changed)
-        header.addWidget(self.windowCombo)
+        action_row.addWidget(self.windowCombo)
         self.pauseBtn = PushButton(L("暂停绘图", "Pause Charts"), self.view)
         self.pauseBtn.clicked.connect(self._toggle_plot_pause)
-        header.addWidget(self.pauseBtn)
+        action_row.addWidget(self.pauseBtn)
         self.clearBtn = PushButton(L("清空历史", "Clear History"), self.view)
         self.clearBtn.clicked.connect(self._clear_history)
-        header.addWidget(self.clearBtn)
+        action_row.addWidget(self.clearBtn)
         self.exportBtn = PushButton(L("导出 CSV", "Export CSV"), self.view)
         self.exportBtn.clicked.connect(self._export_csv)
-        header.addWidget(self.exportBtn)
+        action_row.addWidget(self.exportBtn)
+        action_row.addStretch(1)
+        header.addLayout(action_row)
         root.addLayout(header)
 
         grid = QGridLayout()
-        grid.setSpacing(12)
+        self._metrics_grid = grid
+        grid.setSpacing(14)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
         self.tCpu = PercentTile(L("CPU 使用率", "CPU Usage"), ACCENT)
         self.tMem = PercentTile(L("内存", "Memory"), PURPLE)
         self.tTcp = StatTile(L("TCP 连接数", "TCP Connections"), GREEN)
         self.tProc = StatTile(L("进程数", "Processes"), ACCENT)
+        self._metric_tiles = (self.tCpu, self.tMem, self.tTcp, self.tProc)
+        self._tiles_single_column = False
+        for tile in self._metric_tiles:
+            tile.setMinimumWidth(250)
         grid.addWidget(self.tCpu, 0, 0)
         grid.addWidget(self.tMem, 0, 1)
         grid.addWidget(self.tTcp, 1, 0)
@@ -222,6 +233,19 @@ class MonitorView(ScrollArea):
         root.addWidget(net_card, 1)
 
         monitor.updated.connect(self._on_update)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        single = self.width() < 980
+        if single == self._tiles_single_column:
+            return
+        self._tiles_single_column = single
+        grid = self._metrics_grid
+        for tile in self._metric_tiles:
+            grid.removeWidget(tile)
+        for index, tile in enumerate(self._metric_tiles):
+            row, column = (index, 0) if single else divmod(index, 2)
+            grid.addWidget(tile, row, column)
 
     def _on_update(self, d):
         cpu = float(d["cpu"])

@@ -5,7 +5,7 @@ import threading
 
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QBoxLayout, QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from qfluentwidgets import (BodyLabel, CaptionLabel, ComboBox, InfoBar,
                             InfoBarPosition, LineEdit, PrimaryPushButton,
                             PushButton, ScrollArea, SimpleCardWidget, SpinBox,
@@ -42,20 +42,13 @@ class CollabView(ScrollArea):
         self._log_lines = []
 
         root = QVBoxLayout(self.view)
-        root.setContentsMargins(36, 24, 36, 24)
-        root.setSpacing(16)
+        root.setContentsMargins(28, 22, 28, 28)
+        root.setSpacing(14)
 
         root.addWidget(SubtitleLabel(L("协同测试", "Collaborative Testing"), self.view))
 
-        # 模式选择：角色 + 连接方式
+        # 连接方式选择
         mode_row = QHBoxLayout()
-        mode_row.addWidget(BodyLabel(L("角色", "Role"), self.view))
-        self.roleCombo = ComboBox(self.view)
-        self.roleCombo.addItems([L("主控（发起邀请）", "Host (invite)"), L("节点（加入）", "Node (join)")])
-        self.roleCombo.currentIndexChanged.connect(self._switch_role)
-        mode_row.addWidget(self.roleCombo)
-        mode_row.addSpacing(24)
-
         mode_row.addWidget(BodyLabel(L("连接方式", "Connection"), self.view))
         self.connCombo = ComboBox(self.view)
         self.connCombo.addItems([L("中继（外网推荐）", "Relay (WAN)"), L("直连（局域网）", "Direct (LAN)")])
@@ -66,7 +59,8 @@ class CollabView(ScrollArea):
         root.addLayout(mode_row)
 
         cols = QHBoxLayout()
-        cols.setSpacing(16)
+        cols.setSpacing(14)
+        self._columns_layout = cols
 
         # ========== 主控卡片 ==========
         self.hostCard = SimpleCardWidget(self.view)
@@ -131,7 +125,10 @@ class CollabView(ScrollArea):
         self.pushStopBtn.setEnabled(False)
         hl.addWidget(self.pushStartBtn)
         hl.addWidget(self.pushStopBtn)
-        cols.addWidget(self.hostCard, 1)
+        hl.addStretch(1)
+        # 两张卡片内容高度会随连接方式变化；顶部对齐可避免较短的卡片
+        # 被另一张卡片强制拉高，从而在底部留下大片卡片内空白。
+        cols.addWidget(self.hostCard, 1, Qt.AlignmentFlag.AlignTop)
 
         # ========== 节点卡片 ==========
         self.nodeCard = SimpleCardWidget(self.view)
@@ -174,7 +171,10 @@ class CollabView(ScrollArea):
         self.leaveBtn.setEnabled(False)
         nl.addWidget(self.joinBtn)
         nl.addWidget(self.leaveBtn)
-        cols.addWidget(self.nodeCard, 1)
+        nl.addStretch(1)
+        cols.addWidget(self.nodeCard, 1, Qt.AlignmentFlag.AlignTop)
+        self.hostCard.setMinimumWidth(420)
+        self.nodeCard.setMinimumWidth(420)
 
         root.addLayout(cols)
 
@@ -240,8 +240,17 @@ class CollabView(ScrollArea):
         self._stat_timer.start(1000)
         self._node_states = {}
 
-        self._switch_role(0)
         self._switch_conn_mode(0)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        narrow = self.width() < 960
+        direction = (QBoxLayout.Direction.TopToBottom if narrow
+                     else QBoxLayout.Direction.LeftToRight)
+        if self._columns_layout.direction() != direction:
+            self._columns_layout.setDirection(direction)
+        self.hostCard.setMinimumWidth(0 if narrow else 420)
+        self.nodeCard.setMinimumWidth(0 if narrow else 420)
 
     def _is_relay_mode(self):
         return self.connCombo.currentIndex() == 0
@@ -254,10 +263,6 @@ class CollabView(ScrollArea):
         v.addWidget(CaptionLabel(title, w))
         v.addWidget(value_label)
         return w
-
-    def _switch_role(self, idx):
-        self.hostCard.setVisible(idx == 0)
-        self.nodeCard.setVisible(idx == 1)
 
     def _switch_conn_mode(self, idx):
         """切换中继/直连模式时更新 UI 显示。"""
@@ -299,13 +304,19 @@ class CollabView(ScrollArea):
             self.hostLabel.show()
             self.hostEdit.show()
 
-        # 已生成过邀请码且当前是主控角色时：模式切换后旧邀请码不再适用（房间绑定生成时的模式），自动重新生成
-        # （节点角色下切换连接方式只切换UI，不触发主控房间重建）
-        if getattr(self, "_last_code", None) and self.roleCombo.currentIndex() == 0:
+        # 已生成邀请码后切换连接方式时，按新模式自动重新生成
+        if getattr(self, "_last_code", None):
             self._server_log(L(
                 f"连接模式已切换为{'中继' if is_relay else '直连'}，正在按新模式自动重新生成邀请码…",
                 f"Connection mode switched to {'relay' if is_relay else 'direct'}; regenerating invite automatically..."))
             self._gen_invite()
+
+        # show()/hide() 会改变两张卡片的 sizeHint；立即刷新布局，避免 Qt
+        # 暂时沿用切换前的高度，在较短卡片底部留下空白区域。
+        self.hostCard.updateGeometry()
+        self.nodeCard.updateGeometry()
+        self._columns_layout.invalidate()
+        self._columns_layout.activate()
 
     def _gen_invite(self):
         # 使旧的中继等待状态与超时定时器失效（快速切换模式时防止旧定时器误关新遮罩、旧遮罩残留）
@@ -326,6 +337,18 @@ class CollabView(ScrollArea):
                 # 安全超时：MQTT无响应时防止遮罩永久卡住（token失效旧的定时器）
                 QTimer.singleShot(8000, lambda: self._relay_busy_timeout(token))
         code = collab_server.generate_invite(self.maxNodesSpin.value(), use_relay=use_relay)
+        if not code:
+            self._last_code = ""
+            self.inviteBtn.hide()
+            self.inviteValidHint.hide()
+            self.pushStartBtn.setEnabled(False)
+            self.pushStopBtn.setEnabled(False)
+            InfoBar.error(
+                L("生成邀请码失败", "Invite generation failed"),
+                L("无法监听协同端口，请检查端口是否被占用。",
+                  "The collaboration port could not be opened; check whether it is already in use."),
+                parent=self.window())
+            return
         self._last_code = code
         self.inviteBtn.setText(code)
         self.inviteBtn.show()  # 显示邀请码按钮
@@ -603,7 +626,6 @@ class CollabView(ScrollArea):
         if ok:
             self.leaveBtn.setEnabled(True)
             self.connCombo.setEnabled(False)
-            self.roleCombo.setEnabled(False)
             self._client_log(L(f"已加入，邀请码 {code}", f"Joined with code {code}"))
             log.info(L(f"加入协同: code={code}", f"Joined collab: code={code}"))
         else:
@@ -615,7 +637,6 @@ class CollabView(ScrollArea):
         self.joinBtn.setEnabled(True)
         self.leaveBtn.setEnabled(False)
         self.connCombo.setEnabled(True)
-        self.roleCombo.setEnabled(True)
         self._client_log(L("已退出", "Left"))
 
     def _on_remote_start(self, config):
@@ -752,7 +773,13 @@ class CollabView(ScrollArea):
             QTimer.singleShot(300, self._do_remote_start)
             return
         self._remote_start_config = None
-        engine.start([config])
+        if not engine.start([config]):
+            self._hide_startup_busy()
+            reason = L("压测引擎拒绝了远程启动请求", "The stress engine rejected the remote start request")
+            self._client_log(reason)
+            InfoBar.warning(L("启动失败", "Start failed"), reason,
+                            parent=self.window())
+            return
         # 安全超时：5秒后强制隐藏
         QTimer.singleShot(5000, self._hide_startup_busy)
 
@@ -767,6 +794,10 @@ class CollabView(ScrollArea):
     def _on_remote_stop(self):
         """收到主控停止指令。"""
         self._client_log(L("收到主控指令，停止压测", "Received host command; stopping"))
+        # A stop command must also cancel a start waiting in the 80 ms render
+        # delay or in the retry loop that waits for a previous job to finish.
+        self._remote_start_config = None
+        self._hide_startup_busy()
         # 仅在确实有测试运行时才显示遮罩（否则遮罩会因无结束事件而永久卡死）
         if engine.running:
             win = self.window()

@@ -3,6 +3,7 @@
 用于协同测试跨外网（非局域网）连接主控节点。
 """
 import ctypes
+import ipaddress
 import socket
 import subprocess
 
@@ -31,7 +32,10 @@ def get_public_ip(timeout: float = 6):
             r = requests.get(url, timeout=timeout, headers={"User-Agent": "curl/8.0"})
             ip = r.text.strip()
             if r.status_code == 200 and 0 < len(ip) < 46:
-                return ip
+                try:
+                    return str(ipaddress.ip_address(ip))
+                except ValueError:
+                    continue
         except Exception:
             continue
     return None

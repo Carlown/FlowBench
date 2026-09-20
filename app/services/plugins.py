@@ -378,14 +378,21 @@ class PluginManager(QObject):
         for entry in entries:
             path = os.path.join(root, entry)
             main_py = None
-            if entry.endswith(".py") and entry != "__init__.py":
+            if entry.lower().endswith(".py") and entry.lower() != "__init__.py":
                 main_py = path
             elif os.path.isdir(path) and os.path.isfile(os.path.join(path, "main.py")):
                 main_py = os.path.join(path, "main.py")
             if main_py:
                 fresh = _PluginRecord(main_py)
                 prev = old.get(fresh.pid)
-                self._records.append(prev if prev is not None else fresh)
+                if prev is not None:
+                    # A plugin can be replaced from a single file with a
+                    # folder plugin (or vice versa) while keeping its ID.
+                    # Retaining the old path would reload deleted code.
+                    prev.path = fresh.path
+                    self._records.append(prev)
+                else:
+                    self._records.append(fresh)
         return self._records
 
     def records(self):
@@ -437,6 +444,11 @@ class PluginManager(QObject):
             return True
         except Exception as e:
             rec.error = f"{e}"
+            self._cleanup_registrations(pid)
+            mod_prefix = f"flowbench_plugin_{pid}"
+            for key in list(sys.modules.keys()):
+                if key == mod_prefix or key.startswith(mod_prefix + "."):
+                    del sys.modules[key]
             detail = traceback.format_exc(limit=3)
             from app.ui.i18n import L
             log.error(L(f"插件加载失败：{pid} — {e}", f"Plugin load failed: {pid} — {e}")
@@ -484,13 +496,15 @@ class PluginManager(QObject):
             dis.discard(pid)
         else:
             dis.add(pid)
-        settings.set("plugins_disabled", sorted(dis))
+        if not settings.set("plugins_disabled", sorted(dis)):
+            return False
         if not enabled:
             self.unload(pid)
         else:
             rec = self.record(pid)
             if rec and rec.plugin is None:
-                self.load(rec)
+                return self.load(rec)
+        return True
 
     def reload(self, pid: str) -> bool:
         """重新加载插件（先卸载再加载）。"""
@@ -508,6 +522,7 @@ class PluginManager(QObject):
         安装/更新即视为用户要启用，会自动从禁用列表移除。
         """
         from app.ui.i18n import L
+        src = os.path.abspath(os.path.expanduser(str(src)))
         if not os.path.exists(src):
             return False, L("源路径不存在", "Source path not found")
         root = plugins_dir()
@@ -517,7 +532,7 @@ class PluginManager(QObject):
         dst = os.path.join(root, base)
 
         # 先计算目标 pid，如果已加载则先卸载（Windows 下文件会被占用，必须先释放）
-        target_pid = os.path.splitext(base)[0] if base.endswith(".py") else base
+        target_pid = os.path.splitext(base)[0] if base.lower().endswith(".py") else base
         existing = self.record(target_pid)
         if existing is not None and existing.plugin is not None:
             self.unload(target_pid)
@@ -533,15 +548,20 @@ class PluginManager(QObject):
             if os.path.isdir(src):
                 if not os.path.isfile(os.path.join(src, "main.py")):
                     return False, L("文件夹插件必须包含 main.py", "Folder plugin must contain main.py")
-                if os.path.exists(dst):
-                    shutil.rmtree(dst)
-                shutil.copytree(src, dst)
+                # Importing a folder that is already inside the plugin
+                # directory must not delete its own source before copying.
+                same_path = (os.path.normcase(os.path.abspath(src))
+                             == os.path.normcase(os.path.abspath(dst)))
+                if not same_path:
+                    if os.path.exists(dst):
+                        shutil.rmtree(dst)
+                    shutil.copytree(src, dst)
                 entry = os.path.join(dst, "main.py")
             else:
-                if not src.endswith(".py"):
+                if not src.lower().endswith(".py"):
                     return False, L("仅支持 .py 插件文件", "Only .py plugin files supported")
                 # 源和目标相同则跳过复制（文件已就位）
-                if os.path.abspath(src) != os.path.abspath(dst):
+                if os.path.normcase(os.path.abspath(src)) != os.path.normcase(os.path.abspath(dst)):
                     shutil.copy2(src, dst)
                 entry = dst
         except Exception as e:

@@ -146,6 +146,11 @@ class BusyOverlay(QWidget):
         if sub_text:
             self._sub_label.setText(sub_text)
             self._sub_label.setVisible(True)
+        else:
+            # Do not leave the previous operation's detail line visible when
+            # the next operation only provides a main status message.
+            self._sub_label.clear()
+            self._sub_label.setVisible(False)
         # 禁止 processEvents（原因见 show() 注释），setText 后 Qt 会自动重绘。
 
     def _position_card(self):

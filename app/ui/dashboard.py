@@ -168,8 +168,8 @@ class DashboardView(ScrollArea):
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
         root = QVBoxLayout(self.view)
-        root.setContentsMargins(36, 24, 36, 24)
-        root.setSpacing(16)
+        root.setContentsMargins(28, 22, 28, 28)
+        root.setSpacing(14)
 
         # 标题区
         title_row = QHBoxLayout()
@@ -221,13 +221,18 @@ class DashboardView(ScrollArea):
 
         # 资源统计卡片（CPU、内存用 PercentCard，网络用普通 StatCard）
         grid = QGridLayout()
-        grid.setSpacing(12)
-        grid.setColumnStretch(0, 1)
-        grid.setColumnStretch(1, 1)
+        self._metrics_grid = grid
+        grid.setSpacing(14)
+        for column in range(2):
+            grid.setColumnStretch(column, 1)
         self.cardCpu = PercentCard(L("CPU 使用率", "CPU Usage"), ACCENT)
         self.cardMem = PercentCard(L("内存使用率", "Memory Usage"), PURPLE)
         self.cardDown = StatCard(L("下行速率", "Download"), "KB/s", GREEN)
         self.cardUp = StatCard(L("上行速率", "Upload"), "KB/s", ACCENT)
+        self._metric_cards = (self.cardCpu, self.cardMem, self.cardDown, self.cardUp)
+        self._metrics_single_column = False
+        for card in (self.cardCpu, self.cardMem, self.cardDown, self.cardUp):
+            card.setMinimumWidth(250)
         grid.addWidget(self.cardCpu, 0, 0)
         grid.addWidget(self.cardMem, 0, 1)
         grid.addWidget(self.cardDown, 1, 0)
@@ -257,6 +262,19 @@ class DashboardView(ScrollArea):
         engine.report_ready.connect(self._on_test_report)
         if engine.running:
             self._on_test_started()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        single = self.width() < 980
+        if single == self._metrics_single_column:
+            return
+        self._metrics_single_column = single
+        grid = self._metrics_grid
+        for card in self._metric_cards:
+            grid.removeWidget(card)
+        for index, card in enumerate(self._metric_cards):
+            row, column = (index, 0) if single else divmod(index, 2)
+            grid.addWidget(card, row, column)
 
     @staticmethod
     def _number(value, default=0.0):

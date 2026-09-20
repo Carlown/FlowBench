@@ -5,7 +5,7 @@ import time as _time
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import (QFileDialog, QGridLayout, QHBoxLayout, QLabel,
+from PySide6.QtWidgets import (QBoxLayout, QFileDialog, QGridLayout, QHBoxLayout, QLabel,
                                QVBoxLayout, QWidget)
 from qfluentwidgets import (BodyLabel, CaptionLabel, ComboBox, InfoBar,
                             InfoBarPosition, MenuAnimationType, MessageBox,
@@ -92,16 +92,23 @@ class StressView(ScrollArea):
         self.enableTransparentBackground()
 
         root = QVBoxLayout(self.view)
-        root.setContentsMargins(36, 24, 36, 24)
-        root.setSpacing(16)
+        root.setContentsMargins(28, 22, 28, 28)
+        root.setSpacing(14)
 
         self.titleLabel = SubtitleLabel(L("压力测试", "Stress Test"), self.view)
         root.addWidget(self.titleLabel)
 
         cols = QHBoxLayout()
-        cols.setSpacing(16)
-        cols.addWidget(self._build_config_card(), 5)
-        cols.addWidget(self._build_stats_card(), 6)
+        cols.setSpacing(14)
+        config_card = self._build_config_card()
+        stats_card = self._build_stats_card()
+        self._config_card = config_card
+        self._stats_card = stats_card
+        config_card.setMinimumWidth(430)
+        stats_card.setMinimumWidth(440)
+        cols.addWidget(config_card, 5)
+        cols.addWidget(stats_card, 6)
+        self._columns_layout = cols
         root.addLayout(cols)
 
         # 报告卡片
@@ -143,6 +150,19 @@ class StressView(ScrollArea):
         from app.services.plugins import plugin_manager
         plugin_manager.changed.connect(self._refresh_plugin_protocols)
         self._refresh_plugin_protocols()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        # 与协同测试、服务器节点页使用同一断点。侧栏展开后的常规窗口
+        # 仍有足够空间容纳 430px + 440px 的双栏，不应提前堆叠成单栏。
+        narrow = self.width() < 960
+        direction = (QBoxLayout.Direction.TopToBottom if narrow
+                     else QBoxLayout.Direction.LeftToRight)
+        if getattr(self, "_columns_layout", None) is not None:
+            if self._columns_layout.direction() != direction:
+                self._columns_layout.setDirection(direction)
+            self._config_card.setMinimumWidth(0 if narrow else 430)
+            self._stats_card.setMinimumWidth(0 if narrow else 440)
 
     def _restore_form(self):
         """启动时恢复上次填写的目标配置（本地持久化）。"""
@@ -342,7 +362,17 @@ class StressView(ScrollArea):
                           parent=self.window())
             return
         # 版本兼容检查（将来有新版本可做迁移）
-        ver = cfg.get("version", 0)
+        raw_ver = cfg.get("version", 0)
+        try:
+            if isinstance(raw_ver, bool):
+                raise ValueError
+            ver = int(raw_ver)
+        except (TypeError, ValueError, OverflowError):
+            InfoBar.error(
+                L("导入失败", "Import Failed"),
+                L("配置文件版本字段无效", "Config file has an invalid version field"),
+                parent=self.window())
+            return
         if ver > CONFIG_VERSION:
             InfoBar.warning(L("版本提示", "Version Notice"),
                             L(f"配置文件来自更新版本的 FlowBench（v{ver}），部分设置可能无法识别。",
@@ -777,19 +807,18 @@ class StressView(ScrollArea):
         """延迟执行引擎启动，确保等待遮罩已渲染。"""
         configs = self._startup_configs
         self._startup_configs = None
+        # The user may press Stop during the short render delay. In that case
+        # _stop() clears the pending configs and this callback must become a
+        # no-op instead of resurrecting the cancelled test.
+        if not configs:
+            return
         ok = engine.start(configs)
         if not ok:
             self._hide_startup_busy()
             self.startBtn.setEnabled(True)
             self.stopBtn.setEnabled(False)
             self.statusLabel.setText(L("就绪", "Ready"))
-            if getattr(self, "_previous_report", None):
-                self._last_report = self._previous_report
-                self.reportLabel.setText(self._previous_report_text)
-                self.copyReportBtn.setEnabled(True)
-                self.exportReportBtn.setEnabled(True)
-            self._previous_report = None
-            self._previous_report_text = ""
+            self._restore_report_after_cancelled_start()
             InfoBar.warning(L("启动失败", "Start failed"),
                             L("无法启动压测，请检查配置", "Cannot start stress test, check configuration"),
                             parent=self.window())
@@ -807,8 +836,36 @@ class StressView(ScrollArea):
             if hasattr(win, "hide_busy"):
                 win.hide_busy()
 
+    def _restore_report_after_cancelled_start(self):
+        """Restore the last valid report after a start fails or is cancelled."""
+        previous = getattr(self, "_previous_report", None)
+        if previous is not None:
+            self._last_report = previous
+            self.reportLabel.setText(self._previous_report_text)
+            self.copyReportBtn.setEnabled(True)
+            self.exportReportBtn.setEnabled(True)
+        else:
+            self._last_report = None
+            self.reportLabel.setText(L("尚未执行测试。", "No test executed yet."))
+            self.copyReportBtn.setEnabled(False)
+            self.exportReportBtn.setEnabled(False)
+        self._previous_report = None
+        self._previous_report_text = ""
+
     def _stop(self):
-        # 如果还在启动阶段就点击停止，先清除启动遮罩标记（停止遮罩会覆盖它）
+        # Cancel a test that is still inside the short UI-render delay. The
+        # queued singleShot callback will see no configs and safely return.
+        if self._startup_configs is not None:
+            self._startup_configs = None
+            self._hide_startup_busy()
+            self.startBtn.setEnabled(True)
+            self.stopBtn.setEnabled(False)
+            self.statusLabel.setText(L("就绪", "Ready"))
+            self._restore_report_after_cancelled_start()
+            log.info(L("压测在启动前已取消", "Stress test cancelled before startup"))
+            return
+
+        # 如果 worker 已开始创建，停止遮罩会覆盖启动遮罩。
         self._startup_busy = False
         win = self.window()
         if hasattr(win, "show_busy"):

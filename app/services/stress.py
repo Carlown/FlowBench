@@ -3,6 +3,7 @@ import socket
 import statistics
 import threading
 import time
+import math
 from collections import deque
 
 import requests
@@ -31,6 +32,11 @@ def _percentile(data, p):
 _ERR_CODES = {
     "refused": "refused",
     "reset by peer": "reset",
+    # Connection-refused errors on Windows carry the socket timeout phrase
+    # ("A connection attempt failed ... timed out"); classify them before the
+    # generic "timed out" key so they are reported as refused, not timeout.
+    "a connection attempt failed": "refused",
+    "connection attempt failed": "refused",
     "unreachable": "unreachable",
     "timed out": "timeout",
     "getaddrinfo": "dns",
@@ -52,13 +58,38 @@ def _classify_conn_error(e) -> str:
     return "conn"
 
 
+# Stable errno -> UI error code. Windows WSABASEERR values (10054/10060/10061/...)
+# and POSIX ECONNRESET/ETIMEDOUT/ECONNREFUSED/EHOSTUNREACH/ENETUNREACH share the
+# same lower 6 bits once the 10000 offset is removed, so one table covers both.
+_ERRNO_CODES = {
+    54: "reset",      # ECONNRESET / WSAECONNRESET
+    60: "timeout",    # ETIMEDOUT / WSAETIMEDOUT
+    61: "refused",    # ECONNREFUSED / WSAECONNREFUSED
+    65: "unreachable",  # EHOSTUNREACH / WSAEHOSTUNREACH
+    51: "unreachable",  # ENETUNREACH / WSAENETUNREACH
+    113: "unreachable", # EHOSTUNREACH (Linux)
+    101: "unreachable", # ENETUNREACH (Linux)
+    111: "refused",   # ECONNREFUSED (Linux)
+    110: "timeout",   # ETIMEDOUT (Linux)
+    104: "reset",     # ECONNRESET (Linux)
+}
+
+
 def _oserr_str(e) -> str:
     """把 socket OSError 归类为稳定错误码。"""
+    # Prefer the numeric errno: on non-English Windows the message text is
+    # localized, so substring matching alone misses refused/timeout errors.
+    eno = getattr(e, "errno", None)
+    if isinstance(eno, int):
+        code = _ERRNO_CODES.get(eno)
+        if code is None and eno >= 10000:
+            code = _ERRNO_CODES.get(eno - 10000)  # WSABASEERR offset
+        if code:
+            return code
     s = str(e).lower()
     for k, code in _ERR_CODES.items():
         if k in s:
             return code
-    eno = getattr(e, "errno", None)
     if eno:
         return f"errno_{eno}"
     return "conn"
@@ -111,11 +142,39 @@ class StressEngine(QObject):
 
     def start(self, config: dict) -> bool:
         """启动压测。线程创建在后台线程执行，ready 信号表示所有 worker 已就绪。"""
-        if self.running:
+        if self.running or not isinstance(config, dict):
             return False
+        required = ("target", "protocol", "threads", "rate", "duration",
+                    "packet_size", "timeout")
+        if any(key not in config for key in required):
+            return False
+        try:
+            numeric = {
+                "threads": int(config["threads"]),
+                "rate": float(config["rate"]),
+                "duration": float(config["duration"]),
+                "packet_size": int(config["packet_size"]),
+                "timeout": float(config["timeout"]),
+            }
+        except (TypeError, ValueError, OverflowError):
+            return False
+        if (any(isinstance(config[key], bool) for key in numeric)
+                or not math.isfinite(numeric["rate"])
+                or not math.isfinite(numeric["duration"])
+                or not math.isfinite(numeric["timeout"])
+                or numeric["threads"] < 1 or numeric["rate"] <= 0
+                or numeric["duration"] <= 0 or numeric["packet_size"] < 1
+                or numeric["timeout"] <= 0):
+            return False
+        config = dict(config)
+        config.update(numeric)
         self._reset()
         self.config = config
         self._stop.clear()
+        # Clear before handing off to the launcher.  Clearing inside the
+        # launcher races with an immediate stop() call and can resurrect a
+        # task the user already cancelled.
+        self._start_event.clear()
         self.running = True
         threading.Thread(target=self._launch_workers, args=(config,), daemon=True).start()
         return True
@@ -123,12 +182,11 @@ class StressEngine(QObject):
     def _launch_workers(self, config):
         """在后台线程中创建并启动所有 worker，尽早开始发送快照让UI响应。"""
         bucket = TokenBucket(config["rate"])
-        self._start_event.clear()
         self._threads = []
-        # 先设置计时起点并启动监控线程，让UI立即收到快照反馈
+        # Set the timing origin before workers are released so a short test
+        # cannot expire while the launcher is still constructing threads.
         self._t0 = time.monotonic()
         self._end = self._t0 + config["duration"]
-        threading.Thread(target=self._supervise, daemon=True).start()
         # 创建所有线程（它们会在 _start_event 处等待）
         for _ in range(config["threads"]):
             t = threading.Thread(target=self._worker, args=(config, bucket), daemon=True)
@@ -137,6 +195,9 @@ class StressEngine(QObject):
         # 所有线程已创建完成，放行所有 worker 统一开始
         self._start_event.set()
         self.ready.emit()
+        # Start supervision only after the worker list is complete; otherwise
+        # the supervisor can observe an empty list and end a short job early.
+        threading.Thread(target=self._supervise, daemon=True).start()
 
     def stop(self):
         self._stop.set()
@@ -195,17 +256,19 @@ class StressEngine(QObject):
             nbytes = 0  # 本次请求实际发送的字节数
             try:
                 if proto == "HTTP":
-                    r = session.get(c["url"], timeout=timeout, headers=c.get("headers"))
-                    ok = r.status_code < 400
-                    nbytes = _http_req_bytes(r)
-                    if not ok:
-                        err = f"HTTP {r.status_code}"
+                    with session.get(c["url"], timeout=timeout,
+                                     headers=c.get("headers")) as r:
+                        ok = r.status_code < 400
+                        nbytes = _http_req_bytes(r)
+                        if not ok:
+                            err = f"HTTP {r.status_code}"
                 elif proto == "HTTPS":
-                    r = session.get(c["url"], timeout=timeout, headers=c.get("headers"), verify=False)
-                    ok = r.status_code < 400
-                    nbytes = _http_req_bytes(r)
-                    if not ok:
-                        err = f"HTTP {r.status_code}"
+                    with session.get(c["url"], timeout=timeout,
+                                     headers=c.get("headers"), verify=False) as r:
+                        ok = r.status_code < 400
+                        nbytes = _http_req_bytes(r)
+                        if not ok:
+                            err = f"HTTP {r.status_code}"
                 elif proto == "TCP":
                     ok, err = self._tcp_once(c, payload, timeout, st)
                     nbytes = len(payload) if ok else 0
@@ -221,7 +284,7 @@ class StressEngine(QObject):
                         raise RuntimeError(f"unknown protocol: {proto}")
                     ok, err, nbytes = plugin_handler(c, timeout, st)
                     ok = bool(ok)
-                    nbytes = int(nbytes or 0)
+                    nbytes = max(0, int(nbytes or 0))
             except requests.exceptions.Timeout:
                 err = "timeout"
             except requests.exceptions.ConnectionError as e:
@@ -369,7 +432,7 @@ class StressEngine(QObject):
                 "p50": _percentile(lats, 50),
                 "p90": _percentile(lats, 90),
                 "p99": _percentile(lats, 99),
-                "traffic_mb": self.total * (self.config["packet_size"] + 54) / 1024 / 1024,
+                "traffic_mb": self.bytes_tx / 1024 / 1024,
                 "bytes_tx": self.bytes_tx,
                 "rate_limit": self.config["rate"],
                 "errors": dict(self.errors),
@@ -436,6 +499,18 @@ class MultiStressEngine(QObject):
             if e.start(c):
                 self._children.append(e)
                 all_ok = True
+            else:
+                # Starting only a prefix of a multi-target job leaves those
+                # workers running while the UI reports failure. Roll back
+                # every child already launched and ignore their late signals.
+                for child in self._children:
+                    child.stop()
+                self._children = []
+                self._snaps = {}
+                self._reports = {}
+                self.running = False
+                self._timer.stop()
+                return False
         if not all_ok:
             self.running = False
             return False
@@ -463,6 +538,8 @@ class MultiStressEngine(QObject):
         self._snaps[child._idx] = (d, child.config or {})
 
     def _on_child_report(self, child, r):
+        if not self.running:
+            return
         self._reports[child._idx] = r
         if len(self._reports) >= len(self._children):
             self._finish()

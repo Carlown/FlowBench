@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.2.4] - 2026-09-20
+
+### Added
+
+- Added a public MQTT relay mode for Server Agents. Relay node bundles no longer require users to enter a public server IP or domain, and servers only need outbound internet access instead of an open inbound TCP 8787 control port.
+- Added automatic relay URL and controller-token generation and persistence so newly generated nodes can be controlled immediately and additional nodes can join the same private relay channel.
+
+### Changed
+
+- Unified the desktop app, updater, installer, documentation, and release metadata on version 1.2.4.
+- Made installer migration prompts follow the selected setup language instead of mixing Chinese and English.
+- Refined the application layout with more consistent page margins, card spacing, top alignment, navigation reflow, and responsive two-column-to-stacked breakpoints across the primary views.
+- Improved the Server Agents and Collaborative Testing pages so controls remain usable and visually balanced at both wide and narrow window sizes.
+
+### Fixed
+
+- Preserved the configured accent color when switching between light and dark themes.
+- Cancelled locally queued stress tests when Stop is pressed during the short startup-render delay.
+- Cancelled queued collaborative remote starts when a stop command arrives, including starts waiting for a previous job to finish.
+- Restored the previous report, or the empty report state, when a test fails or is cancelled before startup.
+- Prevented importing an already-installed folder plugin from deleting its own source directory.
+- Recognized plugin files with uppercase or mixed-case `.py` extensions.
+
+### Verified
+
+- Added regression coverage for theme accent persistence, queued-start cancellation, version consistency, and English UI text.
+- Passed all 29 automated tests, packaged-application startup smoke testing, and the Inno Setup 7 installer build.
+
 ## [1.2.2] - 2026-09-07
 
 ### Added

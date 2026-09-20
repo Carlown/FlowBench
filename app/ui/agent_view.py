@@ -14,23 +14,25 @@ import socket
 import sys
 import tempfile
 import threading
+import time
 import uuid
 import zipfile
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from PySide6.QtCore import QTimer, Signal
-from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QFileDialog, QGridLayout, QHBoxLayout, QVBoxLayout, QWidget
-from qfluentwidgets import (BodyLabel, CaptionLabel, ComboBox, FluentStyleSheet,
+from PySide6.QtGui import QColor, QGuiApplication
+from PySide6.QtWidgets import (QBoxLayout, QFileDialog, QGridLayout, QHBoxLayout,
+                               QSizePolicy, QVBoxLayout, QWidget)
+from qfluentwidgets import (BodyLabel, CaptionLabel, ComboBox, FluentIcon as FIF, FluentStyleSheet,
                             InfoBar,
                             MessageBoxBase,
                             InfoBarPosition, LineEdit, PasswordLineEdit,
                             PrimaryPushButton, PushButton, ScrollArea,
                             SimpleCardWidget, StrongBodyLabel, SubtitleLabel,
-                            TextEdit, isDarkTheme, qconfig, Theme)
+                            isDarkTheme, Theme)
 
-from app.services.agent_control import ControllerClient
+from app.services.agent_control import ControllerClient, RelayControllerClient
 from app.services.auth import add_authorized, build_http_url, is_authorized, normalize_host
 from app.services.settings import settings
 from app.ui.disclaimer import AuthDialog
@@ -38,10 +40,13 @@ from app.ui.i18n import L
 from app.ui.stress_view import HIGH_RATE, MiniStat, fmt_bytes
 
 
+DEFAULT_AGENT_RELAY = "mqtt://broker.hivemq.com:8000"
+
+
 class GenerateNodeDialog(MessageBoxBase):
     """Fluent-style one-shot dialog for creating a server-node package."""
 
-    def __init__(self, parent=None, has_hub=False, hub_url=""):
+    def __init__(self, parent=None, has_hub=False, hub_url="", use_relay=False):
         super().__init__(parent)
         self.setWindowTitle(L("生成服务器节点", "Generate Server Node"))
         self.widget.setMinimumWidth(560)
@@ -62,6 +67,18 @@ class GenerateNodeDialog(MessageBoxBase):
         description.setWordWrap(True)
         self.viewLayout.addWidget(description)
 
+        mode_row = QHBoxLayout()
+        mode_row.addWidget(BodyLabel(L("连接方式", "Connection"), self.widget))
+        self.connectionCombo = ComboBox(self.widget)
+        self.connectionCombo.addItems([
+            L("Hub 直连（自建或现有 Hub）", "Direct Hub (self-hosted or existing)"),
+            L("公共 MQTT 中继（免开放控制端口）", "Public MQTT relay (no inbound control port)"),
+        ])
+        self.connectionCombo.setCurrentIndex(1 if use_relay else 0)
+        self.connectionCombo.currentIndexChanged.connect(self._update_connection_mode)
+        mode_row.addWidget(self.connectionCombo, 1)
+        self.viewLayout.addLayout(mode_row)
+
         name_row = QHBoxLayout()
         name_row.addWidget(BodyLabel(L("节点名称", "Node name"), self.widget))
         self.nameEdit = LineEdit(self.widget)
@@ -71,26 +88,35 @@ class GenerateNodeDialog(MessageBoxBase):
         name_row.addWidget(self.nameEdit, 1)
         self.viewLayout.addLayout(name_row)
 
-        if has_hub:
-            hint = CaptionLabel(L(
+        self._has_direct_hub = bool(has_hub)
+        self.directHint = CaptionLabel(
+            L(
                 f"将向现有 Hub 追加节点：{hub_url}",
-                f"A new node will be added to the existing Hub: {hub_url}"), self.widget)
-            hint.setWordWrap(True)
-            self.viewLayout.addWidget(hint)
-            self.addressEdit = None
-        else:
-            address_row = QHBoxLayout()
-            address_row.addWidget(BodyLabel(L("服务器地址", "Server address"), self.widget))
-            self.addressEdit = LineEdit(self.widget)
-            self.addressEdit.setPlaceholderText(L("公网 IP 或域名，可带端口", "Public IP or domain; port optional"))
-            address_row.addWidget(self.addressEdit, 1)
-            self.viewLayout.addLayout(address_row)
-            address_hint = CaptionLabel(L(
+                f"A new node will be added to the existing Hub: {hub_url}")
+            if has_hub else L(
                 "未配置 Hub 时会自动生成 HTTPS 控制端和节点，服务器需放行 TCP 8787。",
                 "Without a configured Hub, an HTTPS control Hub and node are generated automatically; open TCP 8787 on the server."),
-                self.widget)
-            address_hint.setWordWrap(True)
-            self.viewLayout.addWidget(address_hint)
+            self.widget,
+        )
+        self.directHint.setWordWrap(True)
+        self.viewLayout.addWidget(self.directHint)
+
+        self.addressRow = QWidget(self.widget)
+        address_row = QHBoxLayout(self.addressRow)
+        address_row.setContentsMargins(0, 0, 0, 0)
+        address_row.addWidget(BodyLabel(L("服务器地址", "Server address"), self.addressRow))
+        self.addressEdit = LineEdit(self.addressRow)
+        self.addressEdit.setPlaceholderText(L("公网 IP 或域名，可带端口", "Public IP or domain; port optional"))
+        address_row.addWidget(self.addressEdit, 1)
+        self.viewLayout.addWidget(self.addressRow)
+
+        self.relayHint = CaptionLabel(L(
+            "通过公共 MQTT 中继连接，服务器只需能够访问外网，无需开放 8787 控制端口。",
+            "Connect through the public MQTT relay. The server only needs outbound internet access; port 8787 stays closed."),
+            self.widget)
+        self.relayHint.setWordWrap(True)
+        self.viewLayout.addWidget(self.relayHint)
+        self._update_connection_mode()
 
         output_row = QHBoxLayout()
         output_row.addWidget(BodyLabel(L("保存位置", "Save location"), self.widget))
@@ -138,7 +164,17 @@ class GenerateNodeDialog(MessageBoxBase):
         return self.nameEdit.text().strip()
 
     def server_address(self):
-        return self.addressEdit.text().strip() if self.addressEdit is not None else ""
+        return self.addressEdit.text().strip()
+
+    def connection_mode(self):
+        return "relay" if self.connectionCombo.currentIndex() == 1 else "direct"
+
+    def _update_connection_mode(self, *_):
+        use_relay = self.connectionCombo.currentIndex() == 1
+        self.directHint.setVisible(not use_relay)
+        self.addressRow.setVisible(not use_relay and not self._has_direct_hub)
+        self.relayHint.setVisible(use_relay)
+        self.widget.updateGeometry()
 
     def output_path(self):
         return self.outputEdit.text().strip()
@@ -162,42 +198,61 @@ class AgentView(ScrollArea):
         self._last_poll_error = ""
         self._last_remote_key = ""
         self._completion_logged = {}
+        self._relay_client = None
+        self._relay_client_key = None
         self._poll_timer = QTimer(self)
         self._poll_timer.setInterval(2000)
         self._poll_timer.timeout.connect(self._poll_remote_status)
         self._poll_timer.start()
 
         root = QVBoxLayout(self.view)
-        root.setContentsMargins(36, 24, 36, 24)
-        root.setSpacing(16)
+        root.setContentsMargins(28, 22, 28, 28)
+        root.setSpacing(14)
         root.addWidget(SubtitleLabel(L("服务器节点", "Server Agents"), self.view))
         root.addWidget(CaptionLabel(
-            L("服务器节点使用压力测试页当前配置；本页不重复填写目标和协议。未配置 Hub 时，生成节点会自动生成一体化控制端。",
-              "Server nodes use the current Stress Test page configuration; no duplicate target or protocol form here. Without a Hub, Generate creates an all-in-one control Hub automatically."),
+            L("服务器节点使用压力测试页当前配置；生成节点时可选择自建 Hub 或公共 MQTT 中继。",
+              "Server nodes use the current Stress Test page configuration; choose a self-hosted Hub or the public MQTT relay when generating a node."),
             self.view))
 
         control = SimpleCardWidget(self.view)
         form = QVBoxLayout(control)
         form.setContentsMargins(20, 16, 20, 16)
         form.setSpacing(10)
-        form.addWidget(StrongBodyLabel(L("节点控制", "Agent Control"), control))
 
-        connection = QHBoxLayout()
-        connection.addWidget(BodyLabel(L("Hub 地址", "Hub URL"), control))
-        self.hubEdit = LineEdit(control)
-        self.hubEdit.setPlaceholderText("https://control.example.com")
-        connection.addWidget(self.hubEdit, 1)
-        connection.addWidget(BodyLabel(L("控制令牌", "Controller token"), control))
-        self.tokenEdit = PasswordLineEdit(control)
-        connection.addWidget(self.tokenEdit, 1)
-        self.refreshBtn = PushButton(L("刷新节点", "Refresh agents"), control)
+        # 标题行：左侧标题 + 右侧操作按钮（与“复制日志/清空”同一排布逻辑），
+        # 按钮统一 32px 高并配图标，避免裸按钮悬在表单中间的廉价观感。
+        title_row = QHBoxLayout()
+        title_row.setSpacing(8)
+        title_row.addWidget(StrongBodyLabel(L("节点控制", "Agent Control"), control))
+        title_row.addStretch(1)
+        self.refreshBtn = PushButton(FIF.SYNC, L("刷新节点", "Refresh agents"), control)
+        self.refreshBtn.setFixedHeight(32)
+        self.refreshBtn.setMinimumWidth(112)
+        self.refreshBtn.setToolTip(L("从当前控制通道刷新在线服务器节点列表。",
+                                     "Refresh online server agents through the current control channel."))
         self.refreshBtn.clicked.connect(self.refresh_agents)
-        connection.addWidget(self.refreshBtn)
-        self.generateBtn = PushButton(L("生成服务器节点", "Generate server node"), control)
-        self.generateBtn.setToolTip(L("已配置 Hub 时追加节点；未配置时生成 Hub + 节点一体化 ZIP。",
-                                      "With a configured Hub, append a node; otherwise generate an all-in-one Hub + node ZIP."))
+        title_row.addWidget(self.refreshBtn)
+        self.generateBtn = PushButton(FIF.ADD, L("生成服务器节点", "Generate server node"), control)
+        self.generateBtn.setFixedHeight(32)
+        self.generateBtn.setMinimumWidth(148)
+        self.generateBtn.setToolTip(L(
+            "可选择现有 Hub、一体化 Hub 或公共 MQTT 中继。",
+            "Choose an existing Hub, an all-in-one Hub, or the public MQTT relay."))
         self.generateBtn.clicked.connect(self.generate_node)
-        connection.addWidget(self.generateBtn)
+        title_row.addWidget(self.generateBtn)
+        form.addLayout(title_row)
+
+        connection = QVBoxLayout()
+        connection.setSpacing(8)
+        connection_fields = QHBoxLayout()
+        connection_fields.addWidget(BodyLabel(L("控制地址", "Control URL"), control))
+        self.hubEdit = LineEdit(control)
+        self.hubEdit.setPlaceholderText("https://control.example.com  /  mqtt://broker…")
+        connection_fields.addWidget(self.hubEdit, 1)
+        connection_fields.addWidget(BodyLabel(L("控制令牌", "Controller token"), control))
+        self.tokenEdit = PasswordLineEdit(control)
+        connection_fields.addWidget(self.tokenEdit, 1)
+        connection.addLayout(connection_fields)
         form.addLayout(connection)
 
         selection = QHBoxLayout()
@@ -220,16 +275,20 @@ class AgentView(ScrollArea):
         self.mQps = MiniStat("#8764B8", status_card)
         self.mTx = MiniStat("#00B7C3", status_card)
         status_grid = QGridLayout()
-        status_grid.addWidget(self._mini(L("累计请求", "Total Requests"), self.mTotal, status_card), 0, 0)
-        status_grid.addWidget(self._mini(L("累计成功", "Total Success"), self.mSuccess, status_card), 0, 1)
-        status_grid.addWidget(self._mini(L("实时 QPS", "Live QPS"), self.mQps, status_card), 1, 0)
-        status_grid.addWidget(self._mini(L("总发送流量", "Total Sent Traffic"), self.mTx, status_card), 1, 1)
+        self._status_grid = status_grid
+        self._status_widgets = [
+            self._mini(L("累计请求", "Total Requests"), self.mTotal, status_card),
+            self._mini(L("累计成功", "Total Success"), self.mSuccess, status_card),
+            self._mini(L("实时 QPS", "Live QPS"), self.mQps, status_card),
+            self._mini(L("总发送流量", "Total Sent Traffic"), self.mTx, status_card),
+        ]
+        for index, widget in enumerate(self._status_widgets):
+            status_grid.addWidget(widget, index // 2, index % 2)
         status_layout.addLayout(status_grid)
         self.nodeListLabel = CaptionLabel(L("（暂无节点连接）", "(no nodes connected)"), status_card)
         self.nodeListLabel.setWordWrap(True)
         status_layout.addWidget(self.nodeListLabel)
-        root.addWidget(status_card)
-
+        status_layout.addStretch(1)
         buttons = QHBoxLayout()
         self.runBtn = PrimaryPushButton(L("在服务器启动", "Start on server"), control)
         self.runBtn.clicked.connect(self.run_job)
@@ -239,40 +298,70 @@ class AgentView(ScrollArea):
         buttons.addWidget(self.stopBtn)
         buttons.addStretch(1)
         form.addLayout(buttons)
-        root.addWidget(control)
+        form.addStretch(1)
 
-        # QFluentWidgets TextEdit follows the application theme.  QPlainTextEdit
-        # used here previously kept a black native background in dark mode.
+        # 左右双栏布局（与协同测试页一致）：左侧节点控制，右侧节点状态；
+        # 窗口较窄时自动堆叠为上下两栏。
+        self._control_card = control
+        self._status_card = status_card
+        self._columns_layout = QHBoxLayout()
+        self._columns_layout.setSpacing(14)
+        self._columns_layout.addWidget(control, 1)
+        self._columns_layout.addWidget(status_card, 1)
+        root.addLayout(self._columns_layout)
+
+        # 日志区域与协同测试页保持一致：纯文本标签 + 复制/清空按钮，
+        # 不再使用大边框的 TextEdit，避免深色模式下风格不统一。
+        self._log_lines = []
         log_card = SimpleCardWidget(self.view)
         log_layout = QVBoxLayout(log_card)
         log_layout.setContentsMargins(20, 16, 20, 14)
-        log_layout.addWidget(StrongBodyLabel(L("节点状态和操作结果", "Agent status and operation results"), log_card))
-        self.logEdit = TextEdit(log_card)
-        self.logEdit.setReadOnly(True)
-        self.logEdit.setMinimumHeight(150)
-        self.logEdit.setMaximumHeight(240)
-        self.logEdit.setPlaceholderText(L("节点状态和操作结果会显示在这里。",
-                                         "Agent status and operation results appear here."))
-        log_layout.addWidget(self.logEdit)
-        qconfig.themeChanged.connect(self._refresh_log_theme)
-        self._refresh_log_theme()
+        # 用一个横向可扩展的标题容器承载操作区。直接把子布局塞进
+        # QVBoxLayout 时，侧栏宽度变化后 Qt 偶尔会保留旧的 sizeHint，
+        # 导致按钮停在页面中部；显式的 Expanding 容器会始终吃满卡片宽度。
+        log_header = QWidget(log_card)
+        log_header.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        log_head = QHBoxLayout(log_header)
+        log_head.setContentsMargins(0, 0, 0, 0)
+        log_head.setSpacing(8)
+        log_head.addWidget(StrongBodyLabel(L("节点状态和操作结果", "Agent status and operation results"), log_header))
+        log_head.addStretch(1)
+        self.copyLogBtn = PushButton(L("复制日志", "Copy Log"), log_header)
+        self.copyLogBtn.clicked.connect(self._copy_log)
+        self.clearLogBtn = PushButton(L("清空", "Clear"), log_header)
+        self.clearLogBtn.clicked.connect(self._clear_log)
+        log_head.addWidget(self.copyLogBtn)
+        log_head.addWidget(self.clearLogBtn)
+        log_layout.addWidget(log_header)
+        self.logLabel = CaptionLabel(L("（暂无）", "(empty)"), log_card)
+        self.logLabel.setWordWrap(True)
+        log_layout.addWidget(self.logLabel)
+        log_layout.addStretch(1)
         self.hubEdit.setText(str(settings.agent_hub_url or ""))
         self.tokenEdit.setText(str(settings.agent_hub_token or ""))
-        root.addWidget(log_card)
-        root.addStretch(1)
+        # 日志卡片占满剩余空间，让日志区域延伸到底部而不是悬空一大段
+        root.addWidget(log_card, 1)
 
-    def _refresh_log_theme(self, *_):
-        """Keep the status editor readable in both light and dark themes."""
-        if isDarkTheme():
-            background, foreground, border = "#202020", "#F3F3F3", "#454545"
-        else:
-            background, foreground, border = "#FFFFFF", "#1F1F1F", "#D6D6D6"
-        self.logEdit.setStyleSheet(
-            "QTextEdit {"
-            f"background-color: {background}; color: {foreground}; "
-            f"border: 1px solid {border}; border-radius: 6px; padding: 6px;"
-            "}"
-        )
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        narrow = self.width() < 960
+        direction = (QBoxLayout.Direction.TopToBottom if narrow
+                     else QBoxLayout.Direction.LeftToRight)
+        if self._columns_layout.direction() != direction:
+            self._columns_layout.setDirection(direction)
+        self._control_card.setMinimumWidth(0 if narrow else 440)
+        self._status_card.setMinimumWidth(0 if narrow else 440)
+        self._set_status_grid_columns(4 if narrow else 2)
+
+    def _set_status_grid_columns(self, columns):
+        grid = getattr(self, "_status_grid", None)
+        widgets = getattr(self, "_status_widgets", None)
+        if grid is None or widgets is None:
+            return
+        for widget in widgets:
+            grid.removeWidget(widget)
+        for index, widget in enumerate(widgets):
+            grid.addWidget(widget, index // columns, index % columns)
 
     def _mini(self, title, value_label, parent):
         w = QWidget(parent)
@@ -287,7 +376,19 @@ class AgentView(ScrollArea):
         url = self.hubEdit.text().strip()
         token = self.tokenEdit.text().strip()
         if not url or not token:
-            raise ValueError(L("请填写 Hub 地址和控制令牌", "Enter the Hub URL and controller token"))
+            raise ValueError(L("请填写控制地址和控制令牌", "Enter the control URL and controller token"))
+        if RelayControllerClient.supports(url):
+            key = (url, token)
+            if self._relay_client is None or self._relay_client_key != key:
+                if self._relay_client is not None:
+                    self._relay_client.close()
+                self._relay_client = RelayControllerClient(url, token)
+                self._relay_client_key = key
+            return self._relay_client
+        if self._relay_client is not None:
+            self._relay_client.close()
+            self._relay_client = None
+            self._relay_client_key = None
         return ControllerClient(url, token, ca_file=self._ca_file)
 
     def _async(self, action, fn):
@@ -341,8 +442,12 @@ class AgentView(ScrollArea):
         """Show one Fluent dialog and generate either an appended or all-in-one node."""
         url = self.hubEdit.text().strip()
         token = self.tokenEdit.text().strip()
-        has_hub = bool(url and token)
-        dialog = GenerateNodeDialog(self.window(), has_hub=has_hub, hub_url=url)
+        use_existing_relay = bool(url and token and RelayControllerClient.supports(url))
+        scheme = urlsplit(url).scheme.lower() if url else ""
+        has_hub = bool(url and token and scheme in {"http", "https"})
+        dialog = GenerateNodeDialog(
+            self.window(), has_hub=has_hub, hub_url=url, use_relay=use_existing_relay
+        )
         if not dialog.exec():
             return
 
@@ -365,6 +470,14 @@ class AgentView(ScrollArea):
             return
 
         self.generateBtn.setEnabled(False)
+        if dialog.connection_mode() == "relay":
+            relay_url = url if use_existing_relay else (
+                f"{DEFAULT_AGENT_RELAY}/{secrets.token_urlsafe(24)}"
+            )
+            controller_token = token if use_existing_relay else secrets.token_urlsafe(32)
+            self._async("generate_relay", lambda: self._generate_relay_package(
+                name, relay_url, controller_token, str(output_path)))
+            return
         if has_hub:
             try:
                 client = ControllerClient(url, token, ca_file=self._ca_file)
@@ -451,7 +564,8 @@ class AgentView(ScrollArea):
         hub_exe = self._hub_exe_path()
         hub_source = linux_root / "agent" / "hub.py"
         transport_source = linux_root / "agent" / "transport.py"
-        missing = [path for path in (agent_exe, hub_exe, hub_source, transport_source,
+        relay_source = linux_root / "agent" / "relay.py"
+        missing = [path for path in (agent_exe, hub_exe, hub_source, transport_source, relay_source,
                                      linux_root / "server_agent.py") if not path.is_file()]
         if missing:
             raise FileNotFoundError(L("安装包缺少服务端文件，请重新构建主程序。",
@@ -572,10 +686,14 @@ exec python3 agent/server_agent.py --config agent/agent.json
                 bundle.write(linux_root / "server_agent.py", "linux/agent/server_agent.py")
                 bundle.write(linux_root / "agent" / "worker.py", "linux/agent/agent/worker.py")
                 bundle.write(transport_source, "linux/agent/agent/transport.py")
+                bundle.write(relay_source, "linux/agent/agent/relay.py")
                 bundle.write(linux_root / "agent" / "__init__.py", "linux/agent/agent/__init__.py")
                 bundle.writestr("linux/agent/agent.json", config_json)
                 bundle.writestr("linux/agent/ca.pem", cert_pem)
-                bundle.writestr("linux/agent/requirements.txt", "requests>=2.31" + chr(10))
+                bundle.writestr(
+                    "linux/agent/requirements.txt",
+                    "requests>=2.31\npaho-mqtt>=2.0\n",
+                )
                 for script in (("linux/hub/start-hub.sh", linux_hub),
                                ("linux/agent/start-agent.sh", linux_agent),
                                ("linux/start-all.sh", linux_all)):
@@ -612,6 +730,91 @@ exec python3 agent/server_agent.py --config agent/agent.json
             "ca_file": str(ca_path),
         }
 
+    def _generate_relay_package(self, name, relay_url, controller_token, output):
+        """Create a standalone node package that uses the public MQTT relay."""
+        output = Path(output).resolve()
+        exe, linux_root = self._node_payload_paths()
+        source_files = [
+            linux_root / "server_agent.py",
+            linux_root / "agent" / "worker.py",
+            linux_root / "agent" / "transport.py",
+            linux_root / "agent" / "relay.py",
+            linux_root / "agent" / "__init__.py",
+        ]
+        missing = ([exe] if not exe.is_file() else []) + [
+            path for path in source_files if not path.is_file()
+        ]
+        if missing:
+            raise FileNotFoundError(L(
+                "安装包缺少 Agent 文件，请重新构建主程序。",
+                "The installed app is missing agent payload files; rebuild the main app.",
+            ))
+
+        agent_id = "server-" + secrets.token_hex(6)
+        allowed_targets = sorted({
+            str(item.get("host")) for item in settings.authorized if item.get("host")
+        })
+        agent_config = {
+            "transport": "mqtt_relay",
+            "relay_url": relay_url,
+            "controller_token": controller_token,
+            "agent_id": agent_id,
+            "name": name,
+            "allowed_targets": allowed_targets,
+            "allowed_protocols": ["HTTP", "HTTPS", "TCP"],
+            "max_rate": 100,
+            "max_duration": 300,
+            "max_threads": 32,
+            "max_packet_size": 65536,
+            "heartbeat_interval": 10,
+            "job_heartbeat_interval": 2,
+        }
+        config_json = json.dumps(agent_config, ensure_ascii=False, indent=2)
+        start_cmd = '@echo off\ncd /d "%~dp0"\nFlowBench-Agent.exe --config agent.json\n'
+        start_sh = '#!/usr/bin/env bash\nset -e\ncd "$(dirname "$0")"\nexec python3 server_agent.py --config agent.json\n'
+        instructions = L(
+            "FlowBench 中继服务器节点\n\n"
+            "此节点通过公共 MQTT 中继连接，不需要开放 8787 控制端口。\n"
+            "Windows：进入 windows 文件夹，双击 start-agent.cmd。\n"
+            "Linux：进入 linux 文件夹，安装 requirements.txt 后运行 ./start-agent.sh。\n"
+            "节点和本地 FlowBench 都必须能访问 broker.hivemq.com。\n"
+            "只对你拥有或取得书面授权的目标执行测试。",
+            "FlowBench relay server node\n\n"
+            "This node connects through the public MQTT relay; port 8787 stays closed.\n"
+            "Windows: open the windows folder and run start-agent.cmd.\n"
+            "Linux: open the linux folder, install requirements.txt, then run ./start-agent.sh.\n"
+            "Both the node and local FlowBench must be able to reach broker.hivemq.com.\n"
+            "Use only targets you own or are authorized to test.",
+        )
+        with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as bundle:
+            bundle.write(exe, "windows/FlowBench-Agent.exe")
+            bundle.writestr("windows/agent.json", config_json)
+            bundle.writestr("windows/start-agent.cmd", start_cmd)
+            archive_names = [
+                "linux/server_agent.py",
+                "linux/agent/worker.py",
+                "linux/agent/transport.py",
+                "linux/agent/relay.py",
+                "linux/agent/__init__.py",
+            ]
+            for path, archive_name in zip(source_files, archive_names):
+                bundle.write(path, archive_name)
+            bundle.writestr("linux/agent.json", config_json)
+            bundle.writestr("linux/requirements.txt", "requests>=2.31\npaho-mqtt>=2.0\n")
+            info = zipfile.ZipInfo("linux/start-agent.sh")
+            info.create_system = 3
+            info.external_attr = 0o755 << 16
+            bundle.writestr(info, start_sh, compress_type=zipfile.ZIP_DEFLATED)
+            bundle.writestr("README.txt", instructions)
+        return {
+            "path": str(output),
+            "agent_id": agent_id,
+            "name": name,
+            "hub_url": relay_url,
+            "controller_token": controller_token,
+            "ca_file": "",
+        }
+
     def _provision_and_package(self, client, name, output):
         record = client.provision_agent(name)
         exe, linux_root = self._node_payload_paths()
@@ -619,6 +822,7 @@ exec python3 agent/server_agent.py --config agent/agent.json
             linux_root / "server_agent.py",
             linux_root / "agent" / "worker.py",
             linux_root / "agent" / "transport.py",
+            linux_root / "agent" / "relay.py",
             linux_root / "agent" / "__init__.py",
         ]
         missing = ([exe] if not exe.is_file() else []) + [path for path in source_files if not path.is_file()]
@@ -663,13 +867,14 @@ exec python3 agent/server_agent.py --config agent/agent.json
                 (source_files[0], "linux/server_agent.py"),
                 (source_files[1], "linux/agent/worker.py"),
                 (source_files[2], "linux/agent/transport.py"),
-                (source_files[3], "linux/agent/__init__.py"),
+                (source_files[3], "linux/agent/relay.py"),
+                (source_files[4], "linux/agent/__init__.py"),
             ]
             for path, archive_name in linux_payloads:
                 if path.is_file():
                     bundle.write(path, archive_name)
             bundle.writestr("linux/agent.json", config_json)
-            bundle.writestr("linux/requirements.txt", "requests>=2.31\n")
+            bundle.writestr("linux/requirements.txt", "requests>=2.31\npaho-mqtt>=2.0\n")
             # Preserve the executable bit for Linux ZIP archives.
             info = zipfile.ZipInfo("linux/start-agent.sh")
             info.create_system = 3
@@ -817,7 +1022,7 @@ exec python3 agent/server_agent.py --config agent/agent.json
             if action == "poll_status":
                 if str(error) != self._last_poll_error:
                     self._last_poll_error = str(error)
-                    self.logEdit.append(f"[poll] {error}")
+                    self._log(f"[poll] {error}")
                 return
             self._show_error(str(error))
             return
@@ -829,13 +1034,13 @@ exec python3 agent/server_agent.py --config agent/agent.json
                 self.agentCombo.addItem(f"{agent.get('name', agent['agent_id'])} [{state}] — {agent['agent_id']}")
             self.nodeStatus.setText(L(f"已加载 {len(self._agents)} 个节点",
                                       f"Loaded {len(self._agents)} agent(s)"))
-            self.logEdit.append(L(f"已刷新节点列表，共 {len(self._agents)} 个节点。",
+            self._log(L(f"已刷新节点列表，共 {len(self._agents)} 个节点。",
                                   f"Agent list refreshed: {len(self._agents)} agent(s)."))
             for agent in self._agents:
                 event = agent.get("last_event") or {}
                 if event:
                     state = event.get("state", "unknown")
-                    self.logEdit.append(f"{agent.get('agent_id')}: {state}")
+                    self._log(f"{agent.get('agent_id')}: {state}")
             self._update_agent_status_widgets()
             self._emit_selected_remote_event(force=True)
         elif action == "poll_status":
@@ -843,27 +1048,32 @@ exec python3 agent/server_agent.py --config agent/agent.json
             self._update_agent_status_widgets()
             self._emit_selected_remote_event()
             if self._last_poll_error:
-                self.logEdit.append(L("服务器节点状态恢复刷新。", "Server-agent status polling recovered."))
+                self._log(L("服务器节点状态恢复刷新。", "Server-agent status polling recovered."))
             self._last_poll_error = ""
         else:
-            if action in {"generate", "generate_offline"}:
-                self.logEdit.append(L(f"节点安装包已生成：{value['path']}",
+            if action in {"generate", "generate_offline", "generate_relay"}:
+                self._log(L(f"节点安装包已生成：{value['path']}",
                                       f"Node bundle generated: {value['path']}"))
-                if action == "generate_offline":
+                if action in {"generate_offline", "generate_relay"}:
                     self.hubEdit.setText(value["hub_url"])
                     self.tokenEdit.setText(value["controller_token"])
                     self._ca_file = value["ca_file"]
                     settings.set("agent_hub_url", value["hub_url"])
                     settings.set("agent_hub_token", value["controller_token"])
                     settings.set("agent_hub_ca", value["ca_file"])
-                    self.logEdit.append(L(
-                        f"一体化包已生成。复制到服务器运行 start-all 后，本地控制地址：{value['hub_url']}",
-                        f"All-in-one bundle generated. Run start-all on the server; local control URL: {value['hub_url']}"))
+                    if action == "generate_relay":
+                        self._log(L(
+                            f"中继节点包已生成。服务器无需开放控制端口；中继地址：{value['hub_url']}",
+                            f"Relay node bundle generated. No inbound control port is needed; relay: {value['hub_url']}"))
+                    else:
+                        self._log(L(
+                            f"一体化包已生成。复制到服务器运行 start-all 后，本地控制地址：{value['hub_url']}",
+                            f"All-in-one bundle generated. Run start-all on the server; local control URL: {value['hub_url']}"))
                 InfoBar.success(L("节点已生成", "Node generated"),
                                 L("解压后把对应目录复制到服务器即可。", "Extract it and copy the matching folder to the server."),
                                 parent=self, position=InfoBarPosition.TOP)
             else:
-                InfoBar.success(L("已发送", "Sent"), L("命令已发送到 Hub", "Command queued on the Hub"),
+                InfoBar.success(L("已发送", "Sent"), L("命令已发送到控制通道", "Command sent to the control channel"),
                                 parent=self, position=InfoBarPosition.TOP)
 
     def _update_agent_status_widgets(self):
@@ -893,7 +1103,7 @@ exec python3 agent/server_agent.py --config agent/agent.json
                     job_key = str(stats.get("job_id") or stats.get("ts") or "final")
                     if self._completion_logged.get(name) != job_key:
                         self._completion_logged[name] = job_key
-                        self.logEdit.append(L(
+                        self._log(L(
                             f"服务器节点 {name} 压测完成：总请求 {stats.get('total',0)}  "
                             f"成功 {stats.get('success',0)}  失败 {stats.get('fail',0)}  "
                             f"发送 {fmt_bytes(tx)}",
@@ -920,8 +1130,31 @@ exec python3 agent/server_agent.py --config agent/agent.json
             self._last_remote_key = key
             self.remote_event.emit(event)
 
+    def _log(self, text):
+        """追加一条带时间戳的日志，最多保留最近 200 条。"""
+        self._log_lines.append(f"[{time.strftime('%H:%M:%S')}] {text}")
+        self._log_lines = self._log_lines[-200:]
+        self.logLabel.setText("\n".join(self._log_lines))
+
+    def _copy_log(self):
+        """复制当前可见的日志，方便排障和分享。"""
+        if not self._log_lines:
+            InfoBar.warning(L("暂无日志", "No log"),
+                            L("当前没有可复制的日志", "There is no log to copy"),
+                            parent=self.window())
+            return
+        QGuiApplication.clipboard().setText("\n".join(self._log_lines))
+        InfoBar.success(L("已复制", "Copied"),
+                        L(f"已复制 {len(self._log_lines)} 条日志",
+                          f"Copied {len(self._log_lines)} log entries"),
+                        parent=self.window())
+
+    def _clear_log(self):
+        """只清空页面中的临时日志，不影响审计日志文件。"""
+        self._log_lines.clear()
+        self.logLabel.setText(L("（暂无）", "(empty)"))
+
     def _show_error(self, text):
-        self.logEdit.append(f"[error] {text}")
+        self._log(f"[error] {text}")
         InfoBar.error(L("服务器节点操作失败", "Server-agent operation failed"), text,
                       parent=self, position=InfoBarPosition.TOP)
-

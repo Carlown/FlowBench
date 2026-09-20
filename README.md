@@ -77,7 +77,7 @@ pyinstaller --name FlowBench --icon app.ico --windowed --onefile --add-data "app
 
 # 2. Create the installer (requires Inno Setup 7)
 ISCC.exe installer.iss
-# Output: installer/FlowBench-Setup-1.2.2.exe
+# Output: installer/FlowBench-Setup-1.2.4.exe
 ```
 
 ### Tech Stack
@@ -157,7 +157,7 @@ pyinstaller --name FlowBench --icon app.ico --windowed --onefile --add-data "app
 
 # 2. 制作安装程序（需安装 Inno Setup 7）
 ISCC.exe installer.iss
-# 产物位于 installer/FlowBench-Setup-1.2.2.exe
+# 产物位于 installer/FlowBench-Setup-1.2.4.exe
 ```
 
 ### 技术栈

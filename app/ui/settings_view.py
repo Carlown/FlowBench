@@ -97,8 +97,14 @@ class ThemeColorPicker(QWidget):
         qconfig.themeChanged.connect(self._refresh)
 
     def _apply(self, color_str):
+        if not settings.set("theme_color", color_str):
+            InfoBar.error(
+                L("保存失败", "Save Failed"),
+                L(f"无法保存主题颜色：{settings.last_error}",
+                  f"Could not save the theme color: {settings.last_error}"),
+                parent=self.window(), duration=5000)
+            return
         setThemeColor(QColor(color_str))
-        settings.set("theme_color", color_str)
         self._refresh()
 
     def _refresh(self, *_):
@@ -148,8 +154,8 @@ class SettingsView(ScrollArea):
         self.enableTransparentBackground()
 
         root = QVBoxLayout(self.view)
-        root.setContentsMargins(36, 24, 36, 24)
-        root.setSpacing(16)
+        root.setContentsMargins(28, 22, 28, 28)
+        root.setSpacing(14)
         root.addWidget(SubtitleLabel(L("设置", "Settings"), self.view))
 
         # 外观
@@ -179,13 +185,15 @@ class SettingsView(ScrollArea):
         self.traySwitch = SwitchButton()
         self.traySwitch.setChecked(settings.minimize_to_tray)
         self.traySwitch.checkedChanged.connect(
-            lambda v: settings.set("minimize_to_tray", v))
+            lambda v: self._save_bool_setting(
+                self.traySwitch, "minimize_to_tray", v))
         al.addWidget(SettingRow(L("关闭时最小化到托盘", "Minimize to tray on close"),
                                 L("关闭窗口时程序将驻留系统托盘", "Keep app running in system tray when closing window"), self.traySwitch, appear))
         self.autoUpdateSwitch = SwitchButton()
         self.autoUpdateSwitch.setChecked(settings.auto_check_updates)
         self.autoUpdateSwitch.checkedChanged.connect(
-            lambda v: settings.set("auto_check_updates", v))
+            lambda v: self._save_bool_setting(
+                self.autoUpdateSwitch, "auto_check_updates", v))
         al.addWidget(SettingRow(L("启动时自动检查更新", "Auto-check for updates on launch"),
                                 L("发现新版本时弹窗提示", "Show notification when new version is available"), self.autoUpdateSwitch, appear))
         self.langCombo = ComboBox()
@@ -210,27 +218,32 @@ class SettingsView(ScrollArea):
         self.threadSpin = SpinBox()
         self.threadSpin.setRange(1, 1024)
         self.threadSpin.setValue(settings.default_threads)
-        self.threadSpin.valueChanged.connect(lambda v: settings.set("default_threads", v))
+        self.threadSpin.valueChanged.connect(
+            lambda v: self._save_int_setting(self.threadSpin, "default_threads", v))
         dl.addWidget(SettingRow(L("默认并发线程", "Default concurrency"),
                                 L("新会话的初始线程数", "Initial thread count"), self.threadSpin, defaults))
         self.timeoutSpin = SpinBox()
         self.timeoutSpin.setRange(500, 60000)
         self.timeoutSpin.setValue(settings.default_timeout_ms)
         self.timeoutSpin.setSingleStep(500)
-        self.timeoutSpin.valueChanged.connect(lambda v: settings.set("default_timeout_ms", v))
+        self.timeoutSpin.valueChanged.connect(
+            lambda v: self._save_int_setting(
+                self.timeoutSpin, "default_timeout_ms", v))
         dl.addWidget(SettingRow(L("超时(ms)", "Timeout (ms)"),
                                 L("单请求超时时间", "Per-request timeout"), self.timeoutSpin, defaults))
         self.rateSpin = SpinBox()
         self.rateSpin.setRange(1, 100000)
         self.rateSpin.setValue(settings.default_rate)
-        self.rateSpin.valueChanged.connect(lambda v: settings.set("default_rate", v))
+        self.rateSpin.valueChanged.connect(
+            lambda v: self._save_int_setting(self.rateSpin, "default_rate", v))
         dl.addWidget(SettingRow(L("默认速率上限(QPS)", "Default rate cap"),
                                 L("令牌桶填充速率", "Token bucket fill rate"), self.rateSpin, defaults))
         self.durationSpin = SpinBox()
         self.durationSpin.setRange(1, 3600)
         self.durationSpin.setValue(settings.default_duration)
         self.durationSpin.valueChanged.connect(
-            lambda v: settings.set("default_duration", v))
+            lambda v: self._save_int_setting(
+                self.durationSpin, "default_duration", v))
         dl.addWidget(SettingRow(L("默认持续时间(秒)", "Default duration (s)"),
                                 L("新会话的初始测试时长", "Initial test duration for new sessions"),
                                 self.durationSpin, defaults))
@@ -239,7 +252,8 @@ class SettingsView(ScrollArea):
         self.packetSizeSpin.setSingleStep(64)
         self.packetSizeSpin.setValue(settings.default_packet_size)
         self.packetSizeSpin.valueChanged.connect(
-            lambda v: settings.set("default_packet_size", v))
+            lambda v: self._save_int_setting(
+                self.packetSizeSpin, "default_packet_size", v))
         dl.addWidget(SettingRow(L("默认报文大小(字节)", "Default packet size (bytes)"),
                                 L("TCP、UDP 与插件协议的发送载荷大小",
                                   "Payload size for TCP, UDP and plugin protocols"),
@@ -355,9 +369,48 @@ class SettingsView(ScrollArea):
         run_check(parent=self.window(), manual=True, on_finished=_done)
         QTimer.singleShot(10000, _done)
 
+    def _show_preference_save_error(self, setting_name):
+        InfoBar.error(
+            L("保存失败", "Save Failed"),
+            L(f"无法保存设置：{setting_name}：{settings.last_error}",
+              f"Could not save setting {setting_name}: {settings.last_error}"),
+            parent=self.window(), duration=5000)
+
+    def _save_bool_setting(self, control, name, value):
+        if settings.set(name, bool(value)):
+            return
+        old_value = bool(getattr(settings, name))
+        was_blocked = control.blockSignals(True)
+        control.setChecked(old_value)
+        control.blockSignals(was_blocked)
+        self._show_preference_save_error(name)
+
+    def _save_int_setting(self, control, name, value):
+        if settings.set(name, int(value)):
+            return
+        old_value = int(getattr(settings, name))
+        was_blocked = control.blockSignals(True)
+        control.setValue(old_value)
+        control.blockSignals(was_blocked)
+        self._show_preference_save_error(name)
+
     def _theme_changed(self, checked):
+        theme = "dark" if checked else "light"
+        if not settings.set("theme", theme):
+            was_blocked = self.darkSwitch.blockSignals(True)
+            self.darkSwitch.setChecked(settings.theme == "dark")
+            self.darkSwitch.blockSignals(was_blocked)
+            InfoBar.error(
+                L("保存失败", "Save Failed"),
+                L(f"无法保存主题设置：{settings.last_error}",
+                  f"Could not save the theme setting: {settings.last_error}"),
+                parent=self.window(), duration=5000)
+            return
         setTheme(Theme.DARK if checked else Theme.LIGHT)
-        settings.set("theme", "dark" if checked else "light")
+        # setTheme() rebuilds the global Fluent stylesheet and some versions
+        # reset the accent color while doing so. Reapply the persisted accent
+        # after every light/dark switch so appearance settings stay intact.
+        setThemeColor(QColor(str(settings.theme_color)))
 
     def _animation_changed(self, checked):
         """保存动画偏好并立即应用到主窗口。"""
@@ -377,7 +430,18 @@ class SettingsView(ScrollArea):
             apply_setting(bool(checked))
 
     def _lang_changed(self, idx):
-        settings.set("language", {0: "auto", 1: "zh-CN", 2: "en-US"}.get(idx, "auto"))
+        language = {0: "auto", 1: "zh-CN", 2: "en-US"}.get(idx, "auto")
+        if not settings.set("language", language):
+            was_blocked = self.langCombo.blockSignals(True)
+            self.langCombo.setCurrentIndex(
+                {"auto": 0, "zh-CN": 1, "en-US": 2}.get(settings.language, 0))
+            self.langCombo.blockSignals(was_blocked)
+            InfoBar.error(
+                L("保存失败", "Save Failed"),
+                L(f"无法保存语言设置：{settings.last_error}",
+                  f"Could not save the language setting: {settings.last_error}"),
+                parent=self.window(), duration=5000)
+            return
         InfoBar.success(L("已保存", "Saved"),
                         L("界面语言将在重启后完全生效", "Language fully applies after restart"),
                         parent=self.window())

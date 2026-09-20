@@ -24,7 +24,10 @@ def _read_saved_theme() -> bool:
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            return data.get("theme", "light") != "light"
+            # Treat only the explicit dark value as dark.  A corrupted or
+            # future theme value should fall back to the same light default as
+            # AppSettings, rather than unexpectedly flashing a dark splash.
+            return data.get("theme") == "dark"
     except Exception:
         pass
     return False  # 默认浅色

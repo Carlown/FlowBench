@@ -41,10 +41,24 @@ def normalize_host(target: str) -> str:
 def build_http_url(target: str, host: str, port: int, protocol: str) -> str:
     """构造压测 URL；保留路径/查询和显式端口，裸 IPv6 自动加方括号。"""
     raw = (target or "").strip()
-    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", raw):
-        return raw
     scheme = "https" if str(protocol).upper() == "HTTPS" else "http"
     default_port = 443 if scheme == "https" else 80
+
+    # The selected protocol is authoritative.  Previously a complete URL was
+    # returned unchanged, so choosing HTTPS for ``http://host/path`` still
+    # sent plain HTTP, and changing the port had no effect when the target
+    # already contained a scheme.
+    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", raw):
+        parsed = urlsplit(raw)
+        explicit_port = parsed.port
+        if explicit_port is not None:
+            authority = parsed.netloc
+        else:
+            authority = f"[{host}]" if ":" in host else host
+            if int(port) != default_port:
+                authority += f":{int(port)}"
+        return urlunsplit((scheme, authority, parsed.path,
+                           parsed.query, parsed.fragment))
 
     # 裸 IPv6 不能直接交给 urlsplit("//...") 判断端口；先单独识别，
     # 同时保留其后的 path/query/fragment。

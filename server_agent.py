@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import platform
+import queue
 import socket
 import threading
 import time
@@ -19,14 +21,18 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 import ssl
 
+from agent.relay import (parse_relay_url, relay_topic, sign_message,
+                         verify_message)
 from agent.transport import compact_json, decode_json, endpoint
 from agent.worker import HeadlessStressJob
 
 DEFAULTS = {
+    "transport": "http",
     "poll_interval": 2.0, "heartbeat_interval": 10.0, "job_heartbeat_interval": 2.0, "request_timeout": 8.0,
     "max_rate": 100.0, "max_duration": 300, "max_threads": 32,
     "max_packet_size": 64 * 1024, "allowed_protocols": ["HTTP", "HTTPS", "TCP"],
 }
+SUPPORTED_PROTOCOLS = {"HTTP", "HTTPS", "TCP"}
 
 
 class AgentHTTPError(RuntimeError):
@@ -45,7 +51,12 @@ class HubClient:
             ca_path = Path(raw_ca)
             if not ca_path.is_absolute() and config_path is not None:
                 ca_path = Path(config_path).resolve().parent / ca_path
-            self.ssl_context = ssl.create_default_context(cafile=str(ca_path.resolve()))
+            if ca_path.is_file():
+                self.ssl_context = ssl.create_default_context(cafile=str(ca_path.resolve()))
+            elif bool(config.get("insecure_control_tls", False)):
+                self.ssl_context = ssl._create_unverified_context()
+            else:
+                raise ValueError(f"control CA file not found: {ca_path}")
         # Self-signed control-plane certificates are accepted only through an
         # explicit opt-in in the generated bundle. Never disable verification
         # for arbitrary targets; test traffic has its own TLS handling.
@@ -102,18 +113,47 @@ def load_config(path: Path):
     data = json.loads(path.read_text(encoding="utf-8"))
     merged = dict(DEFAULTS)
     merged.update(data)
-    for key in ("hub_url", "agent_id", "token"):
-        if not str(merged.get(key) or "").strip():
-            raise ValueError(f"{key} is required")
-    if len(str(merged["token"])) < 16:
-        raise ValueError("token must be at least 16 characters")
-    hub = urlsplit(str(merged["hub_url"]))
-    if hub.scheme == "http" and (hub.hostname or "").lower() not in {"localhost", "127.0.0.1", "::1"}:
-        raise ValueError("hub_url must use HTTPS unless it points to localhost")
+    transport = str(merged.get("transport") or "http").strip().lower()
+    merged["transport"] = transport
+    if transport == "mqtt_relay":
+        for key in ("relay_url", "controller_token", "agent_id"):
+            if not str(merged.get(key) or "").strip():
+                raise ValueError(f"{key} is required")
+        if len(str(merged["controller_token"])) < 16:
+            raise ValueError("controller_token must be at least 16 characters")
+        merged["relay"] = parse_relay_url(str(merged["relay_url"]))
+        merged["name"] = str(merged.get("name") or merged["agent_id"]).strip()[:64]
+    elif transport == "http":
+        for key in ("hub_url", "agent_id", "token"):
+            if not str(merged.get(key) or "").strip():
+                raise ValueError(f"{key} is required")
+        if len(str(merged["token"])) < 16:
+            raise ValueError("token must be at least 16 characters")
+        hub = urlsplit(str(merged["hub_url"]))
+        if hub.scheme not in {"http", "https"} or not hub.netloc:
+            raise ValueError("hub_url must be an http(s) URL")
+        try:
+            hub_port = hub.port
+        except ValueError as exc:
+            raise ValueError("hub_url port is invalid") from exc
+        if hub_port is not None and not 1 <= hub_port <= 65535:
+            raise ValueError("hub_url port must be between 1 and 65535")
+        if hub.scheme == "http" and (hub.hostname or "").lower() not in {"localhost", "127.0.0.1", "::1"}:
+            raise ValueError("hub_url must use HTTPS unless it points to localhost")
+    else:
+        raise ValueError("transport must be http or mqtt_relay")
     # An empty list is valid for a newly provisioned node. The controller
     # sends a signed-by-token sync_targets command before the first job.
-    merged["allowed_targets"] = sorted({_host_from_target(x) for x in merged.get("allowed_targets", []) if _host_from_target(x)})
-    merged["allowed_protocols"] = [str(x).upper() for x in merged.get("allowed_protocols", DEFAULTS["allowed_protocols"])]
+    raw_targets = merged.get("allowed_targets", [])
+    if not isinstance(raw_targets, (list, tuple, set)):
+        raw_targets = []
+    merged["allowed_targets"] = sorted({
+        _host_from_target(x) for x in raw_targets if _host_from_target(x)
+    })
+    raw_protocols = merged.get("allowed_protocols", DEFAULTS["allowed_protocols"])
+    if not isinstance(raw_protocols, (list, tuple, set)):
+        raw_protocols = DEFAULTS["allowed_protocols"]
+    merged["allowed_protocols"] = [str(x).upper() for x in raw_protocols]
     return merged
 
 
@@ -125,14 +165,25 @@ def validate_job(raw: dict, config: dict):
     if not target or target not in config["allowed_targets"]:
         raise ValueError(f"target is not in the agent allow-list: {target or '<empty>'}")
     proto = str(job.get("protocol", "HTTP")).upper()
-    if proto not in config["allowed_protocols"]:
+    if proto not in SUPPORTED_PROTOCOLS or proto not in config["allowed_protocols"]:
         raise ValueError(f"protocol is not allowed: {proto}")
     try:
-        rate = float(job.get("rate", 1)); duration = int(job.get("duration", 1))
-        threads = int(job.get("threads", 1)); packet_size = int(job.get("packet_size", 64))
-        port = int(job.get("port", 443 if proto == "HTTPS" else 80)); timeout = int(job.get("timeout", 5000))
+        raw_values = {
+            "rate": job.get("rate", 1),
+            "duration": job.get("duration", 1),
+            "threads": job.get("threads", 1),
+            "packet_size": job.get("packet_size", 64),
+            "port": job.get("port", 443 if proto == "HTTPS" else 80),
+            "timeout": job.get("timeout", 5000),
+        }
+        if any(isinstance(value, bool) for value in raw_values.values()):
+            raise ValueError("boolean numeric job fields are invalid")
+        rate = float(raw_values["rate"]); duration = int(raw_values["duration"])
+        threads = int(raw_values["threads"]); packet_size = int(raw_values["packet_size"])
+        port = int(raw_values["port"]); timeout = int(raw_values["timeout"])
     except (TypeError, ValueError) as exc:
         raise ValueError("numeric job fields are invalid") from exc
+    if not math.isfinite(rate): raise ValueError("rate must be finite")
     if not (0 < rate <= float(config["max_rate"])): raise ValueError("rate exceeds agent limit")
     if not (0 < duration <= int(config["max_duration"])): raise ValueError("duration exceeds agent limit")
     if not (0 < threads <= int(config["max_threads"])): raise ValueError("threads exceed agent limit")
@@ -143,10 +194,19 @@ def validate_job(raw: dict, config: dict):
         url = str(job.get("url") or "").strip()
         if not url:
             scheme = "https" if proto == "HTTPS" else "http"
-            url = f"{scheme}://{target}{'' if port in (80, 443) else ':' + str(port)}"
+            default_port = 443 if proto == "HTTPS" else 80
+            url = f"{scheme}://{target}{'' if port == default_port else ':' + str(port)}"
         parsed = urlsplit(url)
-        if parsed.scheme.lower() not in {"http", "https"} or _host_from_target(url) != target:
-            raise ValueError("HTTP URL host must match the allow-listed target")
+        try:
+            explicit_port = parsed.port
+        except ValueError as exc:
+            raise ValueError("HTTP URL port is invalid") from exc
+        expected_scheme = "https" if proto == "HTTPS" else "http"
+        if (parsed.scheme.lower() not in {"http", "https"}
+                or parsed.scheme.lower() != expected_scheme
+                or _host_from_target(url) != target
+                or (explicit_port is not None and not 1 <= explicit_port <= 65535)):
+            raise ValueError("HTTP URL scheme, host, or port is invalid")
         job["url"] = url
     job.update({"target": target, "protocol": proto, "rate": rate, "duration": duration,
                 "threads": threads, "packet_size": packet_size, "port": port, "timeout": timeout})
@@ -216,7 +276,144 @@ def metadata():
     return {"hostname": socket.gethostname(), "platform": platform.platform(), "python": platform.python_version(), "pid": os.getpid()}
 
 
+def run_relay_agent(config, config_path):
+    """Run an Agent over the authenticated public MQTT relay."""
+    try:
+        import paho.mqtt.client as mqtt
+    except ImportError as exc:
+        raise RuntimeError("paho-mqtt is required for mqtt_relay transport") from exc
+
+    relay = dict(config["relay"])
+    secret = str(config["controller_token"])
+    agent_id = str(config["agent_id"])
+    agent_name = str(config.get("name") or agent_id)
+    status_topic = relay_topic(relay["relay_id"], "status", agent_id)
+    command_topic = relay_topic(relay["relay_id"], "commands", agent_id)
+    runtime = AgentRuntime(config)
+    command_queue = queue.Queue()
+    connected = threading.Event()
+    processed_ids = set()
+    processed_order = []
+    agent_metadata = metadata()
+
+    def status_message(online=True, event=None):
+        return sign_message(secret, {
+            "type": "status",
+            "agent_id": agent_id,
+            "name": agent_name,
+            "metadata": agent_metadata,
+            "online": bool(online),
+            "last_seen": time.time(),
+            "last_event": dict(event if event is not None else runtime.current_event()),
+        })
+
+    client = mqtt.Client(
+        mqtt.CallbackAPIVersion.VERSION2,
+        client_id=f"flowbench-agent-{agent_id}-{uuid.uuid4().hex[:8]}",
+        transport=relay["transport"],
+    )
+    if relay["tls"]:
+        client.tls_set()
+    client.reconnect_delay_set(min_delay=1, max_delay=15)
+    client.will_set(
+        status_topic,
+        json.dumps(status_message(False, {"state": "offline"}), ensure_ascii=False, separators=(",", ":")),
+        qos=1,
+        retain=True,
+    )
+
+    def publish_status(event=None):
+        if not connected.is_set():
+            return
+        client.publish(
+            status_topic,
+            json.dumps(status_message(True, event), ensure_ascii=False, separators=(",", ":")),
+            qos=1,
+            retain=True,
+        )
+
+    def on_connect(active, userdata, flags, reason_code, properties):
+        if getattr(reason_code, "is_failure", False):
+            connected.clear()
+            return
+        active.subscribe(command_topic, qos=1)
+        connected.set()
+        publish_status()
+        print(f"[agent] online as {agent_id} (relay={relay['broker']})", flush=True)
+
+    def on_disconnect(active, userdata, disconnect_flags, reason_code, properties):
+        connected.clear()
+
+    def on_message(active, userdata, message):
+        try:
+            payload = json.loads(message.payload.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return
+        if not verify_message(secret, payload):
+            return
+        if payload.get("type") != "command" or str(payload.get("agent_id") or "") != agent_id:
+            return
+        try:
+            created_at = float(payload.get("created_at") or 0)
+        except (TypeError, ValueError):
+            return
+        if abs(time.time() - created_at) > 300:
+            return
+        command_id = str(payload.get("id") or "")
+        if not command_id or command_id in processed_ids:
+            return
+        command_queue.put(payload)
+
+    client.on_connect = on_connect
+    client.on_disconnect = on_disconnect
+    client.on_message = on_message
+    client.connect_async(relay["broker"], relay["port"], keepalive=30)
+    client.loop_start()
+
+    last_heartbeat = 0.0
+    try:
+        while True:
+            try:
+                payload = command_queue.get(timeout=0.25)
+            except queue.Empty:
+                payload = None
+            if payload is not None:
+                command_id = str(payload["id"])
+                if command_id not in processed_ids:
+                    try:
+                        runtime.handle(dict(payload.get("command") or {}))
+                    except Exception as exc:
+                        runtime._set_event({"state": "error", "error": str(exc), "ts": time.time()})
+                        print(f"[agent] command rejected: {exc}", flush=True)
+                    processed_ids.add(command_id)
+                    processed_order.append(command_id)
+                    if len(processed_order) > 100:
+                        processed_ids.discard(processed_order.pop(0))
+                    publish_status()
+
+            now = time.monotonic()
+            event = runtime.current_event()
+            heartbeat_interval = float(config.get("heartbeat_interval", 10))
+            if str(event.get("state")) in {"starting", "running", "stopping"}:
+                heartbeat_interval = float(config.get("job_heartbeat_interval", 2))
+            if now - last_heartbeat >= heartbeat_interval:
+                publish_status(event)
+                last_heartbeat = now
+    finally:
+        if connected.is_set():
+            client.publish(
+                status_topic,
+                json.dumps(status_message(False, {"state": "offline"}), ensure_ascii=False, separators=(",", ":")),
+                qos=1,
+                retain=True,
+            ).wait_for_publish(timeout=2)
+        client.disconnect()
+        client.loop_stop()
+
+
 def run_agent(config, config_path):
+    if config.get("transport") == "mqtt_relay":
+        return run_relay_agent(config, config_path)
     state_path = Path(config.get("state_file") or (str(config_path) + ".state.json")).expanduser().resolve()
     try:
         state = json.loads(state_path.read_text(encoding="utf-8"))

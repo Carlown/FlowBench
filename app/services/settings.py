@@ -77,7 +77,13 @@ class AppSettings:
                 self._atomic_write_json(os.path.join(base, "settings.json"), data)
             except Exception:
                 pass
-        os.makedirs(base, exist_ok=True)
+        try:
+            os.makedirs(base, exist_ok=True)
+        except OSError:
+            # Read-only/redirected profiles should still allow the app to
+            # start with an isolated temporary settings store.
+            base = os.path.join(tempfile.gettempdir(), "FlowBench")
+            os.makedirs(base, exist_ok=True)
         self.path = os.path.join(base, "settings.json")
         # 默认值里含有 list/dict；必须深拷贝，避免运行期修改污染类级默认值，
         # 否则“恢复默认”可能恢复到已经被改过的对象。

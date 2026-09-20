@@ -116,10 +116,12 @@ class HeadlessStressJob:
         target = self.config["target"]
         port = self.config["port"]
         if proto in {"HTTP", "HTTPS"}:
-            response = session.get(self.config["url"], timeout=timeout,
-                                   headers=self.config.get("headers"),
-                                   verify=(proto == "HTTP"))
-            return response.status_code < 400, None if response.status_code < 400 else f"HTTP {response.status_code}", request_bytes(response)
+            with session.get(self.config["url"], timeout=timeout,
+                             headers=self.config.get("headers"),
+                             verify=(proto == "HTTP")) as response:
+                ok = response.status_code < 400
+                error = None if ok else f"HTTP {response.status_code}"
+                return ok, error, request_bytes(response)
         sock = socket.create_connection((target, port), timeout=timeout)
         try:
             sock.sendall(payload)

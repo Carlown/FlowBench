@@ -46,8 +46,10 @@ class MainWindow(FluentWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("FlowBench")
-        self._default_size = QSize(1240, 800)
-        self._minimum_size = QSize(1000, 680)
+        # Give the dense monitoring and test pages enough horizontal room by
+        # default, while keeping a reasonable minimum for smaller laptops.
+        self._default_size = QSize(1360, 860)
+        self._minimum_size = QSize(1080, 700)
         self.resize(self._default_size)
         self.setMinimumSize(self._minimum_size)
         self._first_show = True
@@ -80,6 +82,17 @@ class MainWindow(FluentWindow):
         self._busy_overlay = None
 
     def init_navigation(self):
+        panel = getattr(self.navigationInterface, "panel", None)
+        # 保留侧边栏展开/收起按钮（默认已连接 menuButton.clicked -> panel.toggle）。
+        # 之前的文字遮挡/错位来自动画中触发的重排，由 expandAni.finished 与
+        # resizeEvent 中的防抖逻辑处理，无需再禁用折叠。
+        if panel is not None:
+            panel.setCollapsible(True)
+            panel.setMenuButtonVisible(True)
+        # 展开/收起动画结束后重排一次，保证文字绘制宽度与面板最终宽度一致
+        ani = getattr(panel, "expandAni", None) if panel is not None else None
+        if ani is not None:
+            ani.finished.connect(self._on_nav_expand_animation_finished)
         self.addSubInterface(self.dashboard, FIF.HOME, L("主页", "Home"))
         self.addSubInterface(self.stress, FIF.SPEED_HIGH, L("压力测试", "Stress Test"))
         self.addSubInterface(self.collab, FIF.CONNECT, L("协同测试", "Collaborative"))
@@ -90,16 +103,15 @@ class MainWindow(FluentWindow):
                              NavigationItemPosition.BOTTOM)
 
     def init_window(self):
-        # 非 Windows 平台插件（含离屏测试）无法真正绘制 Mica。如果仍保持
-        # “Mica 已启用”的透明背景，深色模式会被白色 backing surface 合成，
-        # 导致白字消失；此时明确关闭 Mica，让 FluentWindow 使用主题回退底色。
-        if QGuiApplication.platformName().lower() != "windows":
-            self.setMicaEffectEnabled(False)
-            return
+        # Mica is implemented by qframelesswindow through native Windows
+        # window events. It can access the HWND while the splash/main window
+        # is still being created and has caused process-level access violations
+        # on some Windows/PySide6 combinations. Use the stable Fluent fallback
+        # background instead; this does not affect the page layout or theme.
         try:
-            self.setMicaEffectEnabled(True)
-        except Exception:
             self.setMicaEffectEnabled(False)
+        except Exception:
+            pass
 
     def _ensure_overlay(self):
         """确保 overlay 已创建（首次调用时在窗口显示后创建）。"""
@@ -565,14 +577,13 @@ class MainWindow(FluentWindow):
                 pass
 
     def _animate_navigation_reveal(self, route_key: str):
-        """Give the selected navigation icon a compact reveal animation."""
-        try:
-            item = self.navigationInterface.panel.items.get(route_key)
-            widget = item.widget if item is not None else None
-        except Exception:
-            widget = None
-        if widget is not None:
-            self._start_reveal(widget, "_nav_reveal", 0.12, 480)
+        """Keep navigation items stable while Fluent expands/collapses the rail.
+
+        Applying a second opacity effect to navigation items races the native
+        navigation animation and can leave labels with stale geometry after a
+        collapse/expand cycle. Page content still uses its normal transition.
+        """
+        self._clear_reveal("_nav_reveal")
 
     def _start_reveal(self, widget, state_name: str,
                       start_opacity: float, duration: int):
@@ -643,30 +654,44 @@ class MainWindow(FluentWindow):
         overlay = getattr(self, "_busy_overlay", None)
         if overlay and overlay.isVisible():
             overlay.setGeometry(0, 0, self.width(), self.height())
+        # Recalculate navigation item text geometry after the rail animation or
+        # a window resize. This prevents clipped/overlapping labels.
+        nav = getattr(self, "navigationInterface", None)
+        if nav is not None:
+            panel = getattr(nav, "panel", None)
+            ani = getattr(panel, "expandAni", None) if panel is not None else None
+            ani_running = (ani is not None
+                           and ani.state() == QAbstractAnimation.State.Running)
+            # 展开/收起动画进行中不要触发 panel 重排：布局会覆盖动画中的
+            # geometry，使面板停在中间宽度而文字已按展开宽度绘制，形成遮挡。
+            if panel is not None and not ani_running:
+                panel.updateGeometry()
+            nav.update()
+
+    def _on_nav_expand_animation_finished(self):
+        """导航动画完成后重排一次，保证文字绘制宽度与面板最终宽度一致。"""
+        nav = getattr(self, "navigationInterface", None)
+        panel = getattr(nav, "panel", None) if nav is not None else None
+        if panel is not None:
+            panel.updateGeometry()
+            panel.update()
 
     def showEvent(self, event):
         """窗口首次显示时播放当前页面动画并确保尺寸正确。"""
         super().showEvent(event)
         if self._first_show:
             self._first_show = False
-            # 多次延迟强制确保窗口尺寸正确（应对 FluentWindow 初始化布局可能的 resize）
-            for delay in [0, 30, 100, 250, 500]:
-                QTimer.singleShot(delay, self._ensure_correct_size)
+            # One delayed correction is enough. Repeated resizes during the
+            # first native paint can trigger qframelesswindow access violations.
+            QTimer.singleShot(220, self._ensure_correct_size)
 
-            # showEvent runs before the first paint, so the initial page can be
-            # hidden synchronously without exposing its text for one frame.
+            # The splash screen already provides the startup transition. Do
+            # not run a second full-page reveal while Qt is still settling the
+            # FluentWindow layout; it causes visible flashing on launch.
             self._clear_control_reveals()
             self._clear_reveal("_nav_reveal")
             self._pending_reveal_interface = None
             self._reveal_serial += 1
-            reveal_serial = self._reveal_serial
-            interface = self.stackedWidget.currentWidget()
-            if interface is not None and self._page_animations_enabled:
-                self._prepare_control_reveals(interface, reveal_serial)
-                QTimer.singleShot(
-                    60,
-                    lambda: self._start_control_reveals(reveal_serial))
-                self._animate_navigation_reveal(interface.objectName())
         self._ensure_overlay()
     
     def _ensure_correct_size(self):

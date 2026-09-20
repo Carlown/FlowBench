@@ -2026,8 +2026,8 @@ class MarketView(QWidget):
         self.setObjectName("marketView")
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(36, 24, 36, 24)
-        root.setSpacing(12)
+        root.setContentsMargins(28, 22, 28, 28)
+        root.setSpacing(14)
 
         root.addWidget(SubtitleLabel(L("插件", "Plugins"), self))
 

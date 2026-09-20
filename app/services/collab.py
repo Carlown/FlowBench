@@ -175,8 +175,12 @@ class CollabServer(QObject):
             # MQTT 连接放到后台线程，不阻塞 UI
             threading.Thread(target=self._start_relay_host, args=(gen,), daemon=True).start()
         else:
-            self._start_listen()
-        return self._code
+            if not self._start_listen():
+                self._code = None
+                self._expiry = 0.0
+                self._relay_mode = False
+                return ""
+        return self._code or ""
 
     def broadcast(self, obj):
         """广播消息给所有已连接节点。"""
@@ -281,7 +285,7 @@ class CollabServer(QObject):
                 self._listen_sock = s
                 self.active = True
                 threading.Thread(target=self._accept_loop, daemon=True).start()
-                return
+                return True
             except OSError as e:
                 last_err = e
                 if s:
@@ -290,6 +294,7 @@ class CollabServer(QObject):
                     except OSError:
                         pass
         self.log_msg.emit(L(f"监听失败: {last_err}", f"Listen failed: {last_err}"))
+        return False
 
     def _accept_loop(self):
         while self.active and not self._relay_mode:

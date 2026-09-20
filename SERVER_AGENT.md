@@ -25,6 +25,11 @@ FlowBench-Agent.exe (your server) ───► Authorized test targets
 
 ## One‑click generation (default for open‑source users)
 
+The generation dialog offers two control transports:
+
+- **Direct Hub** keeps the existing HTTPS Hub workflow. Use an existing Hub, or generate an all-in-one Hub + Agent package and expose TCP 8787.
+- **Public MQTT relay** connects the desktop controller and server Agent through `broker.hivemq.com`. The server needs outbound internet access only; no inbound control port is opened. The generated relay URL and controller token are saved back to the Server Nodes page so additional nodes can join the same private relay channel.
+
 If you have not yet deployed a Hub, leave the "Hub address" and "control token" fields blank, then click "Generate Server Node":
 
 1. Enter a node name.
