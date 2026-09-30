@@ -120,6 +120,26 @@
       "min_app": "1.0.7",
       "homepage": "https://github.com/Carlown/FlowBench",
       "publisher": "Carlown"
+    },
+    {
+      "id": "japanese",
+      "name": [
+        "日语语言包",
+        "Japanese Language Pack"
+      ],
+      "version": "1.0.0",
+      "author": "FlowBench",
+      "description": [
+        "将 FlowBench 1.2.5 的界面、对话框和动态提示转换为日语，兼容深浅色主题；启用即生效。",
+        "Japanese UI, dialogs and dynamic messages for FlowBench 1.2.5; supports light and dark themes."
+      ],
+      "category": "ui",
+      "date": "2026-09-30",
+      "file": "japanese.py",
+      "sha256": "bb84b2fd9a972c94047ec3acc4862cbcac4d0708cbb1400e16b513f14b728397",
+      "min_app": "1.0.7",
+      "homepage": "https://github.com/Carlown/FlowBench",
+      "publisher": "Carlown"
     }
   ]
 }
