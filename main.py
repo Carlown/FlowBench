@@ -41,6 +41,7 @@ if getattr(sys, "frozen", False):
 
 # 仅导入最核心、最轻量的模块，确保启动画面能第一时间显示
 from PySide6.QtCore import QLocale, QTimer, QSize, QLockFile
+from PySide6.QtGui import QIcon
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication
 from app.ui.splash import create_splash
@@ -189,6 +190,9 @@ def main():
     app.setApplicationName("FlowBench")
     app.setApplicationDisplayName("FlowBench")
     app.setOrganizationName("FlowBench")
+    ico = resource_path("app.ico")
+    if os.path.exists(ico):
+        app.setWindowIcon(QIcon(ico))
     # The splash is the only top-level window during startup. Closing it
     # before the main window is visible can queue an application quit event.
     app.setQuitOnLastWindowClosed(False)
@@ -237,11 +241,7 @@ def main():
     step(10, "正在启动...", "Starting...")
 
     # ③ 应用图标
-    from PySide6.QtGui import QIcon
     step(25, "加载资源...", "Loading resources...")
-    ico = resource_path("app.ico")
-    if os.path.exists(ico):
-        app.setWindowIcon(QIcon(ico))
 
     # ④ 主题
     from qfluentwidgets import Theme, setTheme, setThemeColor

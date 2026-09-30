@@ -104,10 +104,18 @@ class StressView(ScrollArea):
         stats_card = self._build_stats_card()
         self._config_card = config_card
         self._stats_card = stats_card
+        self._plan_card = self._build_plan_card()
+        self._right_column = QWidget(self.view)
+        right_layout = QVBoxLayout(self._right_column)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(14)
+        right_layout.addWidget(stats_card)
+        right_layout.addWidget(self._plan_card)
         config_card.setMinimumWidth(430)
         stats_card.setMinimumWidth(440)
-        cols.addWidget(config_card, 5)
-        cols.addWidget(stats_card, 6)
+        self._right_column.setMinimumWidth(440)
+        cols.addWidget(config_card, 5, Qt.AlignTop)
+        cols.addWidget(self._right_column, 6, Qt.AlignTop)
         self._columns_layout = cols
         root.addLayout(cols)
 
@@ -146,6 +154,12 @@ class StressView(ScrollArea):
         self._num_targets = 1
         self._last_report = None
         self._restore_form()
+        for signal in (self.targetEdit.textChanged, self.protoCombo.currentTextChanged,
+                       self.portSpin.valueChanged, self.threadSpin.valueChanged,
+                       self.durSpin.valueChanged, self.durUnitCombo.currentIndexChanged,
+                       self.rateSpin.valueChanged):
+            signal.connect(self._refresh_plan)
+        self._refresh_plan()
         # 插件扩展：协议下拉/目标按钮跟随插件启停动态刷新
         from app.services.plugins import plugin_manager
         plugin_manager.changed.connect(self._refresh_plugin_protocols)
@@ -163,6 +177,7 @@ class StressView(ScrollArea):
                 self._columns_layout.setDirection(direction)
             self._config_card.setMinimumWidth(0 if narrow else 430)
             self._stats_card.setMinimumWidth(0 if narrow else 440)
+            self._right_column.setMinimumWidth(0 if narrow else 440)
 
     def _restore_form(self):
         """启动时恢复上次填写的目标配置（本地持久化）。"""
@@ -583,6 +598,122 @@ class StressView(ScrollArea):
         lay.addWidget(tip)
         return card
 
+    def _build_plan_card(self):
+        card = SimpleCardWidget(self.view)
+        card.setObjectName("stressPlanCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(10)
+
+        heading = QHBoxLayout()
+        heading.addWidget(StrongBodyLabel(L("测试计划", "Test plan"), card))
+        heading.addStretch(1)
+        self.planProtocolLabel = CaptionLabel("", card)
+        self.planProtocolLabel.setMaximumWidth(220)
+        heading.addWidget(self.planProtocolLabel)
+        layout.addLayout(heading)
+
+        self.planTargetsValue = StrongBodyLabel("0", card)
+        self.planDurationValue = StrongBodyLabel("", card)
+        self.planThreadsValue = StrongBodyLabel("0", card)
+        self.planRateValue = StrongBodyLabel("0 QPS", card)
+
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(20)
+        grid.setVerticalSpacing(12)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+        grid.addWidget(self._mini(L("目标数量", "Target count"), self.planTargetsValue), 0, 0)
+        grid.addWidget(self._mini(L("持续时间", "Duration"), self.planDurationValue), 0, 1)
+        grid.addWidget(self._mini(L("总并发上限", "Total concurrency"), self.planThreadsValue), 1, 0)
+        grid.addWidget(self._mini(L("总速率上限", "Total rate limit"), self.planRateValue), 1, 1)
+        layout.addLayout(grid)
+
+        self.planStatusLabel = CaptionLabel("", card)
+        self.planStatusLabel.setWordWrap(True)
+        layout.addWidget(self.planStatusLabel)
+        self.planAuthorizationBar = ProgressBar(card)
+        self.planAuthorizationBar.setFixedHeight(4)
+        self.planAuthorizationBar.setValue(0)
+        layout.addWidget(self.planAuthorizationBar)
+        note = CaptionLabel(
+            L("配置预览 · 不会自动开始测试，实际性能以运行统计为准。",
+              "Configuration preview only; measured performance appears above."), card)
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        self._apply_plan_styles()
+        return card
+
+    def _apply_plan_styles(self):
+        from qfluentwidgets import setCustomStyleSheet
+
+        setCustomStyleSheet(
+            self.planProtocolLabel,
+            "FluentLabelBase{color:#0067C0;background:rgba(0,120,212,18);"
+            "border-radius:6px;padding:3px 8px;}",
+            "FluentLabelBase{color:#8CCBFF;background:rgba(0,120,212,38);"
+            "border-radius:6px;padding:3px 8px;}")
+        for label in (self.planTargetsValue, self.planDurationValue,
+                      self.planThreadsValue, self.planRateValue):
+            setCustomStyleSheet(
+                label, "FluentLabelBase{font-size:20px;font-weight:600;}",
+                "FluentLabelBase{font-size:20px;font-weight:600;}")
+
+    def _refresh_plan(self, *_):
+        from qfluentwidgets import setCustomStyleSheet
+
+        targets = set()
+        invalid = 0
+        for line in self.targetEdit.toPlainText().splitlines():
+            if not line.strip():
+                continue
+            host = normalize_host(line)
+            if host:
+                targets.add(host)
+            else:
+                invalid += 1
+        count = len(targets)
+        authorized = sum(is_authorized(host) for host in targets)
+        protocol = self.protoCombo.currentText()
+        protocol_text = protocol if protocol == "ICMP" else f"{protocol} · {self.portSpin.value()}"
+        self.planProtocolLabel.setText(protocol_text)
+        self.planProtocolLabel.setToolTip(protocol_text)
+        self.planTargetsValue.setText(f"{count:,}")
+        self.planDurationValue.setText(f"{self.durSpin.value():,} {self.durUnitCombo.currentText()}")
+        self.planDurationValue.setToolTip(
+            L(f"共 {self.get_duration_seconds():,} 秒",
+              f"{self.get_duration_seconds():,} seconds in total"))
+        self.planThreadsValue.setText(f"{count * self.threadSpin.value():,}")
+        self.planThreadsValue.setToolTip(
+            L(f"每目标 {self.threadSpin.value():,} 个线程 × {count:,} 个目标",
+              f"{self.threadSpin.value():,} threads per target × {count:,} targets"))
+        self.planRateValue.setText(f"{count * self.rateSpin.value():,} QPS")
+        self.planRateValue.setToolTip(
+            L(f"每目标上限 {self.rateSpin.value():,} QPS × {count:,} 个目标；并非实测速率。",
+              f"{self.rateSpin.value():,} QPS cap per target × {count:,} targets; not a measured rate."))
+        self.planAuthorizationBar.setValue(round(100 * authorized / count) if count else 0)
+
+        if invalid:
+            text = L(f"有 {invalid} 个地址无法解析，请先修正。",
+                     f"{invalid} invalid target address(es); correct them first.")
+            light_color, dark_color = "#C42B1C", "#FF99A4"
+        elif not count:
+            text = L("添加目标后显示授权进度。", "Add targets to see authorization progress.")
+            light_color, dark_color = "#666666", "#AAAAAA"
+        elif authorized < count:
+            text = L(f"已授权 {authorized} / {count} · 尚有目标需要确认",
+                     f"Authorized {authorized} / {count} · Confirmation required")
+            light_color, dark_color = "#9D5D00", "#F5C77B"
+        else:
+            text = L(f"已授权 {authorized} / {count} · 所有目标已授权",
+                     f"Authorized {authorized} / {count} · All targets authorized")
+            light_color, dark_color = "#107C10", "#8CDA8C"
+        self.planStatusLabel.setText(text)
+        setCustomStyleSheet(
+            self.planStatusLabel,
+            f"FluentLabelBase{{color:{light_color};}}",
+            f"FluentLabelBase{{color:{dark_color};}}")
+
     def _mini(self, title, value_label):
         w = QWidget(self.view)
         v = QVBoxLayout(w)
@@ -642,6 +773,8 @@ class StressView(ScrollArea):
         self.authListLabel.setText(", ".join(hosts) if hosts else L("（暂无）", "(none)"))
         if hasattr(self, "clearAuthBtn"):
             self.clearAuthBtn.setEnabled(bool(hosts))
+        if hasattr(self, "planTargetsValue"):
+            self._refresh_plan()
 
     def _clear_authorizations(self):
         """清空本机保存的目标授权记录。"""
@@ -897,6 +1030,8 @@ class StressView(ScrollArea):
             self.targetsLabel,
             "FluentLabelBase{color:#0078D4;}",
             "FluentLabelBase{color:#0078D4;}")
+        self._apply_plan_styles()
+        self._refresh_plan()
 
     def _on_snapshot(self, d):
         # 更新实时统计数据

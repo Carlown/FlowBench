@@ -2149,7 +2149,7 @@ class PublishDialog(MessageBoxBase):
             meta = {} if rec.plugin is not None else _scan_plugin_meta(rec.path)
             name = (meta.get("name") or rec.display_name or rec.pid)
             if isinstance(name, (tuple, list)):
-                name = name[0] if name else rec.pid
+                name = _i18n_text(name) if len(name) == 2 else (name[0] if name else rec.pid)
             ver = meta.get("version") or rec.display_version or "?"
             label = f"{name} (v{ver})"
             if rec.plugin is None:   # 状态标记：让用户知道为何未加载

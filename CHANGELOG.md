@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.2.5] - 2026-09-30
+
+### Added
+
+- Added a live, bilingual Test Plan card below the local runtime status, showing target count, duration, total concurrency, total rate cap, protocol, and authorization progress without starting a test.
+- Added regression coverage for all seven built-in pages, primary dialogs, placeholders, tooltips, and startup branding across Chinese/English and light/dark combinations.
+
+### Changed
+
+- Replaced the executable, shortcut, taskbar, and tray branding with the supplied ICO and selected the matching light/dark PNG for the startup splash.
+- Unified the application, updater, installer configuration, and current documentation on version 1.2.5.
+
+### Fixed
+
+- Prevented the runtime status from stretching when HTTP/HTTPS-only controls are displayed, and kept the new plan card top-aligned in wide and stacked layouts.
+- Preserved the plan card's typography and protocol badge styling after theme switches.
+- Made the splash subtitle follow the selected interface language.
+- Made the plugin publishing selector use the current language for bilingual plugin names, including disabled plugins, while preserving both translations in the generated JSON.
+
+### Verified
+
+- Passed all 45 automated tests and 147 subtests, including protocol-switch layout and queued-start cancellation regressions.
+- Visually checked all seven built-in pages and the splash using the Windows Qt backend in Chinese/English and light/dark modes.
+- Built the Windows GUI, Agent, Hub, and operator CLI, and verified packaged GUI startup in all four language/theme combinations.
+- Verified the packaged version, Test Plan implementation, nine embedded icon sizes, theme-specific splash assets, and bundled server templates.
+- Built the bilingual Windows installer with Inno Setup 6.7.3.
+
 ## [1.2.4] - 2026-09-20
 
 ### Added

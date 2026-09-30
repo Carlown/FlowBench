@@ -10,6 +10,7 @@ from PySide6.QtGui import (QPainter, QPixmap, QFont, QColor, QBrush,
 from PySide6.QtWidgets import QApplication, QSplashScreen
 
 from app.services.updater import APP_VERSION
+from app.ui.i18n import L
 
 SPLASH_W = 520
 SPLASH_H = 380
@@ -17,7 +18,7 @@ RADIUS = 18
 
 
 def _read_saved_theme() -> bool:
-    """快速读取保存的主题设置，不导入完整settings模块。返回True=深色。"""
+    """快速读取保存的主题设置。返回True=深色。"""
     try:
         root = os.environ.get("APPDATA", os.path.expanduser("~"))
         path = os.path.join(root, "FlowBench", "settings.json")
@@ -125,7 +126,7 @@ def _render_content(progress=0.0, status_text="", shimmer_pos=-0.3, dark=True) -
     p.drawRect(12, 2, w - 24, 1)
 
     # Logo
-    logo_path = _resource_path("app_logo.png")
+    logo_path = _resource_path("app_logo_dark.png" if dark else "app_logo.png")
     logo_drawn = False
     if os.path.exists(logo_path):
         try:
@@ -160,7 +161,7 @@ def _render_content(progress=0.0, status_text="", shimmer_pos=-0.3, dark=True) -
     p.setFont(sub_font)
     p.setPen(sub_color)
     p.drawText(0, name_y + 48, w, 20, Qt.AlignCenter,
-               "Network Stress Testing & Performance Monitoring")
+               L("网络压力测试与性能监控", "Network Stress Testing & Performance Monitoring"))
 
     # 进度条
     bar_margin_x = 70

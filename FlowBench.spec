@@ -12,6 +12,7 @@ a = Analysis(
     datas=[
         ('app.ico', '.'),
         ('app_logo.png', '.'),
+        ('app_logo_dark.png', '.'),
         # Server-agent payload used by the Generate server node button.
         ('dist/FlowBench-Agent.exe', 'agent_template/windows'),
         ('dist/FlowBench-Hub.exe', 'agent_template/hub'),

@@ -72,13 +72,17 @@ python main.py
 ### Build from Source
 
 ```bash
-# 1. Build single-file exe
-pyinstaller --name FlowBench --icon app.ico --windowed --onefile --add-data "app.ico;." main.py
+# 1. Build the server utilities and GUI with all icon/logo resources
+powershell -File build_all.ps1
 
-# 2. Create the installer (requires Inno Setup 7)
+# 2. Create the installer (requires Inno Setup 6.7 or later)
 ISCC.exe installer.iss
-# Output: installer/FlowBench-Setup-1.2.4.exe
+# Output: installer/FlowBench-Setup-1.2.5.exe
 ```
+
+`app.ico` is the fixed icon for executables, shortcuts, the installer and the system tray.
+The splash uses `app_logo.png` for light mode and `app_logo_dark.png` for dark mode,
+according to the saved theme (light by default). Both PNGs are bundled by `FlowBench.spec`.
 
 ### Tech Stack
 
@@ -152,13 +156,17 @@ python main.py
 ### 从源码打包
 
 ```bash
-# 1. 生成单文件 exe
-pyinstaller --name FlowBench --icon app.ico --windowed --onefile --add-data "app.ico;." main.py
+# 1. 生成服务器工具与主程序，包含全部图标和启动图资源
+powershell -File build_all.ps1
 
-# 2. 制作安装程序（需安装 Inno Setup 7）
+# 2. 制作安装程序（需安装 Inno Setup 6.7 或更高版本）
 ISCC.exe installer.iss
-# 产物位于 installer/FlowBench-Setup-1.2.4.exe
+# 产物位于 installer/FlowBench-Setup-1.2.5.exe
 ```
+
+`app.ico` 固定用于 EXE、快捷方式、安装程序和系统托盘，不随主题切换。
+启动画面根据已保存的主题选择 `app_logo.png`（浅色）或 `app_logo_dark.png`（深色），
+默认使用浅色；两张 PNG 均由 `FlowBench.spec` 打包。
 
 ### 技术栈
 
